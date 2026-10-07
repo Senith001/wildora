@@ -22,5 +22,12 @@ web/build/
 # macOS
 .DS_Store
 
+# Firebase
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+**/firebase-debug.log
+.firebase/
+
 # Orchestration worktrees directory
 .worktrees/
