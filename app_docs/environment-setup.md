@@ -22,7 +22,7 @@ lib/
     ├── app/                  # App-level widgets (root App, theme, routing)
     ├── core/                 # Shared cross-cutting code (constants, utils, config)
     │   └── config/          # App configuration and environment settings
-    ├── data/                # Data layer placeholder (future Drift/SQLite + Supabase)
+    ├── data/                # Data layer (Firebase/Firestore data models; local offline storage under consideration)
     └── features/            # Feature modules placeholder
 ```
 
