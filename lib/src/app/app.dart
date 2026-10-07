@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../features/home/home_screen.dart';
+
 /// The root application widget for Wildora
 class WildoraApp extends StatelessWidget {
   const WildoraApp({super.key});
@@ -11,7 +13,7 @@ class WildoraApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const Scaffold(body: Center(child: Text('Wildora'))),
+      home: const HomeScreen(),
     );
   }
 }
