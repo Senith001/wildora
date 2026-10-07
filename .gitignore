@@ -1,0 +1,26 @@
+# Flutter/Dart
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+*.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+
+# Web build artifacts
+web/build/
+
+# macOS
+.DS_Store
+
+# Orchestration worktrees directory
+.worktrees/
