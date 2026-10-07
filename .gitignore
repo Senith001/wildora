@@ -24,3 +24,7 @@ web/build/
 
 # Orchestration worktrees directory
 .worktrees/
+
+
+.kiro/
+.references/
