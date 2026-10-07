@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// DEVELOPMENT-STAGE Firestore Security Rules for Wildora
+//
+// IMPORTANT: These rules are for DEVELOPMENT ONLY and expire on 2026-12-31.
+// 
+// Before production deployment, these rules MUST be replaced with:
+// 1. Authentication requirement (Firebase Auth integration)
+// 2. Role-based access control for:
+//    - Rangers: read/write animals, alerts; read highRiskZones
+//    - Community Liaison Officers: read animals, alerts, highRiskZones
+//    - Park Managers: full access to all collections
+// 
+// The current time-boxed rules allow unrestricted access to the three core
+// collections (animals, highRiskZones, alerts) until the expiration date,
+// after which all access will be denied by default.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Development access to animals collection (expires 2026-12-31)
+    match /animals/{animalId} {
+      allow read, write: if request.time < timestamp.date(2026, 12, 31);
+    }
+    
+    // Development access to highRiskZones collection (expires 2026-12-31)
+    match /highRiskZones/{zoneId} {
+      allow read, write: if request.time < timestamp.date(2026, 12, 31);
+    }
+    
+    // Development access to alerts collection (expires 2026-12-31)
+    match /alerts/{alertId} {
+      allow read, write: if request.time < timestamp.date(2026, 12, 31);
+    }
+    
+    // Deny all other paths by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
