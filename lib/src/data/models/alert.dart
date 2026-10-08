@@ -11,17 +11,16 @@ class Alert {
   final String alertId;
   final String type;
   final Timestamp timestamp;
-  final String status; // Alert lifecycle: 'active' | 'acknowledged'
-  final String
-  responseStatus; // Shared response: 'unclaimed' | 'responding' | 'resolved'
-  final String? respondingOfficerId; // Officer who claimed response
-  final String? respondingOfficerName; // Denormalized name
-  final Timestamp? respondingAt; // When response was claimed
+  final String status;
+  final String responseStatus; // 'unclaimed' | 'responding' | 'resolved'
+  final String? respondingOfficerId;
+  final String? respondingOfficerName;
+  final Timestamp? respondingAt;
   final String animalId;
   final String zoneId;
   final AlertLocation location;
   final String animalName;
-  final String? locationLabel; // Optional display label for location
+  final String? locationLabel;
 
   const Alert({
     required this.alertId,
