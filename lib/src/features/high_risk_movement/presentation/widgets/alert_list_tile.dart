@@ -19,23 +19,28 @@ class AlertListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alertColors = Theme.of(context).extension<AlertColors>()!;
     final timestamp = alert.timestamp.toDate();
     final responseStatus = alert.responseStatus;
     final status = alert.status;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         onTap: onTap,
         leading: CircleAvatar(
-          backgroundColor: alertColors.critical.withOpacity(0.1),
-          child: Icon(Icons.pets, color: alertColors.critical, size: 20),
+          radius: 22,
+          backgroundColor: Theme.of(context).colorScheme.primary
+              .withOpacity(0.1),
+          child: Icon(
+            Icons.pets,
+            color: Theme.of(context).colorScheme.primary,
+            size: 22,
+          ),
         ),
         title: Text(
           alert.animalName,
           style: Theme.of(context).textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.w500),
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,7 +52,7 @@ class AlertListTile extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               _formatTimestamp(timestamp),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -60,11 +65,11 @@ class AlertListTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _buildResponseStatusBadge(context, responseStatus, status),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Icon(
               Icons.chevron_right,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-              size: 16,
+              size: 18,
             ),
           ],
         ),
@@ -109,7 +114,7 @@ class AlertListTile extends StatelessWidget {
           break;
         default:
           badgeText = 'UNKNOWN';
-          badgeColor = Theme.of(context).colorScheme.surfaceVariant;
+          badgeColor = Theme.of(context).colorScheme.surfaceContainerHighest;
           textColor = Theme.of(context).colorScheme.onSurfaceVariant;
       }
     }

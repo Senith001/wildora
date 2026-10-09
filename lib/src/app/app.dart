@@ -27,6 +27,7 @@ class WildoraApp extends StatelessWidget {
       builder: (context, _) {
         return MaterialApp(
           title: 'Wildora',
+          debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: themeController.themeMode,

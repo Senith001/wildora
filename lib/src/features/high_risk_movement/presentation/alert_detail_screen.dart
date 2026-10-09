@@ -37,10 +37,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Alert Details'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+      appBar: AppBar(title: const Text('Alert Details')),
       body: StreamBuilder<Alert?>(
         stream: widget.controller.alertRepository.watchById(widget.alertId),
         builder: (context, snapshot) {
@@ -127,112 +124,150 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
   Widget _buildAlertInfoSection(Alert alert) {
     final alertColors = Theme.of(context).extension<AlertColors>()!;
 
-    return Container(
-      width: double.infinity,
+    return Card(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Animal name and status
-          Row(
-            children: [
-              Icon(Icons.pets, color: alertColors.critical, size: 24),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Animal: ${alert.animalName}',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Status: Entered High-Risk Zone',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: alertColors.critical,
-                        fontWeight: FontWeight.w500,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Animal info with circular avatar
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Theme.of(context).colorScheme.primary
+                      .withOpacity(0.1),
+                  child: Icon(
+                    Icons.pets,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Animal: ${alert.animalName}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Status: Entered High-Risk Zone',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: alertColors.critical,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Info rows in a card-style layout
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest
+                  .withOpacity(0.3),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    _buildInfoRowWithChip(
+                      Icons.schedule,
+                      'Detected',
+                      _formatTimestamp(alert.timestamp.toDate()),
+                    ),
+                    Divider(
+                      height: 24,
+                      color: Theme.of(context).colorScheme.outline
+                          .withOpacity(0.5),
+                    ),
+                    _buildInfoRowWithChip(
+                      Icons.location_on,
+                      'Location',
+                      alert.locationLabel ?? 'Unknown Zone',
+                    ),
+                    Divider(
+                      height: 24,
+                      color: Theme.of(context).colorScheme.outline
+                          .withOpacity(0.5),
+                    ),
+                    _buildInfoRowWithChip(
+                      Icons.gps_fixed,
+                      'GPS Status',
+                      'Active',
+                      trailing: const Icon(Icons.chevron_right, size: 20),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Detection time and location
-          _buildInfoRow(
-            Icons.access_time,
-            'Detected',
-            _formatTimestamp(alert.timestamp.toDate()),
-          ),
-          const SizedBox(height: 8),
-          _buildInfoRow(
-            Icons.location_on,
-            'Location',
-            alert.locationLabel ?? 'Unknown Zone',
-          ),
-          const SizedBox(height: 8),
-          _buildInfoRow(
-            Icons.gps_fixed,
-            'GPS Status',
-            'Active',
-            valueColor: Theme.of(context).colorScheme.secondary,
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Build info row with icon, label and value
-  Widget _buildInfoRow(
+  /// Build info row with circular icon chip, label and value
+  Widget _buildInfoRowWithChip(
     IconData icon,
     String label,
     String value, {
-    Color? valueColor,
+    Widget? trailing,
   }) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+        // Leading circular icon chip
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
+        // Label and value
         Expanded(
-          child: Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: valueColor ?? Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
           ),
         ),
+        // Optional trailing widget
+        if (trailing != null) ...[const SizedBox(width: 8), trailing],
       ],
     );
   }
 
   /// Build map section with zone placeholder
   Widget _buildMapSection(Alert alert) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -241,7 +276,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
             style: Theme.of(context).textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           SizedBox(
             height: 200,
             width: double.infinity,
@@ -259,35 +294,32 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
 
   /// Build response section with claim/resolve controls
   Widget _buildResponseSection(Alert alert) {
-    return Container(
-      width: double.infinity,
+    return Card(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Response Status',
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Response Status',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
 
-          // Current response status
-          _buildResponseStatus(alert),
-          const SizedBox(height: 16),
+            // Current response status
+            _buildResponseStatus(alert),
+            const SizedBox(height: 16),
 
-          // Action buttons
-          _buildActionButtons(alert),
-          const SizedBox(height: 12),
+            // Action buttons
+            _buildActionButtons(alert),
+            const SizedBox(height: 16),
 
-          // Acknowledge button
-          _buildAcknowledgeButton(alert),
-        ],
+            // Acknowledge button
+            _buildAcknowledgeButton(alert),
+          ],
+        ),
       ),
     );
   }
@@ -343,11 +375,9 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
 
   /// Build action buttons based on current response status
   Widget _buildActionButtons(Alert alert) {
-    final alertColors = Theme.of(context).extension<AlertColors>()!;
-
     switch (alert.responseStatus) {
       case 'unclaimed':
-        // Show "I'm responding" button
+        // Show "I'm responding" button using primary theme
         return SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
@@ -355,11 +385,6 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
             onPressed: () => _claimResponse(alert),
             icon: const Icon(Icons.directions_run),
             label: const Text("I'm responding / Heading there"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: alertColors.critical,
-              foregroundColor: alertColors.onCritical,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
           ),
         );
 
@@ -374,11 +399,6 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
               onPressed: () => _resolveResponse(alert),
               icon: const Icon(Icons.check),
               label: const Text('Mark as Resolved'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
             ),
           );
         } else {
@@ -390,9 +410,6 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
               onPressed: null,
               icon: const Icon(Icons.person),
               label: Text('${alert.respondingOfficerName} is responding'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
             ),
           );
         }
@@ -401,10 +418,10 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
         // Show resolved status - no action needed
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Theme.of(context).colorScheme.secondary),
           ),
           child: Row(
@@ -438,10 +455,10 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
     if (alert.status == 'acknowledged') {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: alertColors.signal.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: alertColors.signal),
         ),
         child: Row(
@@ -467,11 +484,6 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
         onPressed: () => _acknowledgeAlert(alert),
         icon: const Icon(Icons.visibility),
         label: const Text('Acknowledge Alert'),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: alertColors.signal),
-          foregroundColor: alertColors.signal,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
       ),
     );
   }

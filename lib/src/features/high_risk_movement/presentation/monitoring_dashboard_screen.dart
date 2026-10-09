@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/theme_controller.dart';
 import '../../../data/models/alert.dart';
 import '../application/animal_monitoring_controller.dart';
@@ -33,18 +32,15 @@ class MonitoringDashboardScreen extends StatefulWidget {
 class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
   @override
   Widget build(BuildContext context) {
-    final alertColors = Theme.of(context).extension<AlertColors>()!;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monitoring Dashboard'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           // Theme toggle button
           PopupMenuButton<ThemeMode>(
             icon: Icon(
               _getThemeIcon(widget.themeController.themeMode),
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
             onSelected: (ThemeMode mode) {
               widget.themeController.setThemeMode(mode);
@@ -93,12 +89,17 @@ class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Icon(Icons.security, size: 48, color: alertColors.signal),
+                  Icon(
+                    Icons.eco,
+                    size: 40,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'High-Risk Movement Monitoring',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -204,8 +205,6 @@ class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
         onPressed: () => _showSimulateLocationSheet(context),
         icon: const Icon(Icons.developer_mode),
         label: const Text('Simulate'),
-        backgroundColor: alertColors.signal,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
     );
   }
