@@ -165,6 +165,22 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: alertColors.critical,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'HIGH RISK',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: alertColors.onCritical,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),

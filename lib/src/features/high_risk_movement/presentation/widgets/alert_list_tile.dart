@@ -29,11 +29,10 @@ class AlertListTile extends StatelessWidget {
         onTap: onTap,
         leading: CircleAvatar(
           radius: 22,
-          backgroundColor: Theme.of(context).colorScheme.primary
-              .withOpacity(0.1),
+          backgroundColor: _getSeverityBackgroundColor(context, responseStatus, status),
           child: Icon(
             Icons.pets,
-            color: Theme.of(context).colorScheme.primary,
+            color: _getSeverityIconColor(context, responseStatus, status),
             size: 22,
           ),
         ),
@@ -152,6 +151,54 @@ class AlertListTile extends StatelessWidget {
       return '${diff.inDays}d ago';
     } else {
       return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    }
+  }
+
+  /// Get severity-based background color for CircleAvatar
+  Color _getSeverityBackgroundColor(
+    BuildContext context,
+    String responseStatus,
+    String alertStatus,
+  ) {
+    final alertColors = Theme.of(context).extension<AlertColors>()!;
+
+    if (alertStatus == 'acknowledged') {
+      return alertColors.signal.withOpacity(0.12);
+    }
+
+    switch (responseStatus) {
+      case 'unclaimed':
+        return alertColors.critical.withOpacity(0.12);
+      case 'responding':
+        return Theme.of(context).colorScheme.tertiary.withOpacity(0.12);
+      case 'resolved':
+        return Theme.of(context).colorScheme.secondary.withOpacity(0.12);
+      default:
+        return Theme.of(context).colorScheme.primary.withOpacity(0.1);
+    }
+  }
+
+  /// Get severity-based icon color for CircleAvatar
+  Color _getSeverityIconColor(
+    BuildContext context,
+    String responseStatus,
+    String alertStatus,
+  ) {
+    final alertColors = Theme.of(context).extension<AlertColors>()!;
+
+    if (alertStatus == 'acknowledged') {
+      return alertColors.signal;
+    }
+
+    switch (responseStatus) {
+      case 'unclaimed':
+        return alertColors.critical;
+      case 'responding':
+        return Theme.of(context).colorScheme.tertiary;
+      case 'resolved':
+        return Theme.of(context).colorScheme.secondary;
+      default:
+        return Theme.of(context).colorScheme.primary;
     }
   }
 }
