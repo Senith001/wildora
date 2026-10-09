@@ -59,6 +59,8 @@ class HomeScreen extends StatelessWidget {
 
                       // High-Risk Movement Monitoring entry point
                       _buildMonitoringCard(context),
+                      const SizedBox(height: 16),
+                      _buildConflictCard(context),
                     ],
                   ),
                 ),
@@ -66,6 +68,21 @@ class HomeScreen extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildConflictCard(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: ListTile(
+        leading: const Icon(Icons.campaign),
+        title: const Text('Report Human-Wildlife Conflict'),
+        subtitle: const Text(
+          'Submit sightings, crop raids and safety concerns',
+        ),
+        trailing: const Icon(Icons.arrow_forward),
+        onTap: () => Navigator.pushNamed(context, '/conflict'),
       ),
     );
   }

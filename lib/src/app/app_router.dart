@@ -12,6 +12,7 @@ import '../data/repositories/high_risk_zone_repository.dart';
 import '../data/repositories/officer_repository.dart';
 import '../data/repositories/duty_roster_repository.dart';
 import '../data/repositories/alert_recipient_repository.dart';
+import '../features/conflict_reporting/conflict_reporting.dart';
 
 /// Route table for Wildora app navigation with dependency injection.
 ///
@@ -24,12 +25,15 @@ class AppRouter {
 
   final AnimalMonitoringController _monitoringController;
   final ThemeController _themeController;
+  final ConflictReportRepository conflictRepository;
 
   AppRouter({
     required AnimalMonitoringController monitoringController,
     required ThemeController themeController,
+    ConflictReportRepository? conflictRepository,
   }) : _monitoringController = monitoringController,
-       _themeController = themeController;
+       _themeController = themeController,
+       conflictRepository = conflictRepository ?? ConflictReportRepository();
 
   /// Generate route for named routing with dependency injection.
   ///
@@ -63,12 +67,57 @@ class AppRouter {
             ),
             settings: settings,
           );
+
         }
 
         return MaterialPageRoute(
           builder: (_) => AlertDetailScreen(
             alertId: alertId,
             controller: _monitoringController,
+          ),
+          settings: settings,
+        );
+
+      case '/conflict':
+        return MaterialPageRoute(
+          builder: (_) => ConflictReportingHome(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/report':
+        return MaterialPageRoute(
+          builder: (_) => ConflictReportFormScreen(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/reports':
+        return MaterialPageRoute(
+          builder: (_) => MyConflictReportsScreen(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/confirmation':
+        return MaterialPageRoute(
+          builder: (_) => ConflictConfirmationScreen(
+            report: settings.arguments! as ConflictReport,
+          ),
+          settings: settings,
+        );
+      case '/conflict/details':
+        return MaterialPageRoute(
+          builder: (_) => ConflictDetailsScreen(
+            report: settings.arguments! as ConflictReport,
+            repository: conflictRepository,
+          ),
+          settings: settings,
+        );
+      case '/conflict/clo':
+        return MaterialPageRoute(
+          builder: (_) => CloDashboardScreen(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/clo/review':
+        return MaterialPageRoute(
+          builder: (_) => CloReviewScreen(
+            report: settings.arguments! as ConflictReport,
+            repository: conflictRepository,
           ),
           settings: settings,
         );
@@ -118,6 +167,7 @@ class AppRouter {
     return AppRouter(
       monitoringController: monitoringController,
       themeController: themeController,
+      conflictRepository: ConflictReportRepository(),
     );
   }
 }
