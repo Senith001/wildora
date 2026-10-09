@@ -35,3 +35,4 @@ macos/Runner/GoogleService-Info.plist
 
 .kiro/
 .references/
+.specs/
