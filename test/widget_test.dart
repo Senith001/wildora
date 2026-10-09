@@ -52,11 +52,11 @@ void main() {
     // Verify that the app displays the AppBar title.
     expect(find.text('Wildora'), findsOneWidget);
 
-    // Verify that the welcome text is displayed.
-    expect(find.text('Welcome to Wildora'), findsOneWidget);
+    // Verify that the refined dashboard renders with the subtitle.
+    expect(find.text('Ranger Dashboard'), findsOneWidget);
 
-    // Verify that the status text is displayed.
-    expect(find.text('Initial setup is working ✅'), findsOneWidget);
+    // Verify that the monitoring entry still exists via Risk Alerts tile.
+    expect(find.text('Risk Alerts'), findsOneWidget);
 
     // Cleanup
     themeController.dispose();
