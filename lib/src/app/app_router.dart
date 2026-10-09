@@ -13,6 +13,9 @@ import '../data/repositories/officer_repository.dart';
 import '../data/repositories/duty_roster_repository.dart';
 import '../data/repositories/alert_recipient_repository.dart';
 import '../features/conflict_reporting/conflict_reporting.dart';
+import '../features/conflict_reporting/presentation/clo_access_screen.dart';
+import '../features/conflict_reporting/data/firebase_conflict_report_remote.dart';
+import '../features/conflict_reporting/data/local_store_factory.dart';
 
 /// Route table for Wildora app navigation with dependency injection.
 ///
@@ -33,7 +36,10 @@ class AppRouter {
     ConflictReportRepository? conflictRepository,
   }) : _monitoringController = monitoringController,
        _themeController = themeController,
-       conflictRepository = conflictRepository ?? ConflictReportRepository();
+       conflictRepository = conflictRepository ?? ConflictReportRepository(
+         store: createConflictReportStore(),
+         remote: FirebaseConflictReportRemote(uploadPhotos: false),
+       );
 
   /// Generate route for named routing with dependency injection.
   ///
@@ -97,6 +103,7 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => ConflictConfirmationScreen(
             report: settings.arguments! as ConflictReport,
+            repository: conflictRepository,
           ),
           settings: settings,
         );
@@ -110,15 +117,16 @@ class AppRouter {
         );
       case '/conflict/clo':
         return MaterialPageRoute(
-          builder: (_) => CloDashboardScreen(repository: conflictRepository),
+          builder: (_) => CloAccessScreen(repository: conflictRepository,
+            child: CloDashboardScreen(repository: conflictRepository)),
           settings: settings,
         );
       case '/conflict/clo/review':
         return MaterialPageRoute(
-          builder: (_) => CloReviewScreen(
+          builder: (_) => CloAccessScreen(repository: conflictRepository, child: CloReviewScreen(
             report: settings.arguments! as ConflictReport,
             repository: conflictRepository,
-          ),
+          )),
           settings: settings,
         );
 
@@ -167,7 +175,10 @@ class AppRouter {
     return AppRouter(
       monitoringController: monitoringController,
       themeController: themeController,
-      conflictRepository: ConflictReportRepository(),
+      conflictRepository: ConflictReportRepository(
+         store: createConflictReportStore(),
+         remote: FirebaseConflictReportRemote(uploadPhotos: false),
+       ),
     );
   }
 }

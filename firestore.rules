@@ -57,6 +57,38 @@ service cloud.firestore {
     // - CLOs: read animals, alerts, highRiskZones; read officers
     // - Users: read/write own userPreferences only
     
+    // Conflict reporting only; other collections retain their existing policy.
+    function conflictClo() {
+      return request.auth != null && request.auth.token.get('role', '') == 'clo';
+    }
+    match /conflictReports/{reportId} {
+      allow read: if request.auth != null && ((conflictClo() &&
+        (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false))) ||
+        resource.data.get('isDemo', false) == true ||
+        resource.data.get('reporterId', '') == request.auth.uid);
+      allow create: if request.auth != null &&
+        request.resource.data.id == reportId &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.get('isDemo', false) == request.auth.token.get('isDemo', false) &&
+        request.resource.data.syncStatus == 'synced' &&
+        request.resource.data.reportStatus == 'submitted' &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() > 0 && request.resource.data.description.size() <= 500 &&
+        request.resource.data.latitude is number && request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90 &&
+        request.resource.data.longitude is number && request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180 &&
+        request.resource.data.locationDescription is string && request.resource.data.locationDescription.size() > 0 &&
+        request.resource.data.wildlifeType in ['elephant', 'leopard', 'wildBoar', 'other'] &&
+        request.resource.data.conflictType in ['cropRaiding', 'animalSighting', 'propertyDamage', 'threatToPeople', 'other'];
+      allow update: if conflictClo() &&
+        (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportStatus', 'reviewedBy', 'reviewedAt', 'resolvedAt', 'responseNotes', 'updatedAt']) &&
+        ((resource.data.reportStatus == 'submitted' && request.resource.data.reportStatus == 'underReview') ||
+         (resource.data.reportStatus == 'underReview' && request.resource.data.reportStatus == 'resolved' &&
+          request.resource.data.responseNotes is string && request.resource.data.responseNotes.size() > 0));
+      allow delete: if false;
+    }
+
+
     // Deny all other paths by default
     match /{document=**} {
       allow read, write: if false;
