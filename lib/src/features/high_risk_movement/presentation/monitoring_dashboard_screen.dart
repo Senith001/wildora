@@ -30,6 +30,11 @@ class MonitoringDashboardScreen extends StatefulWidget {
 }
 
 class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
+  // The Simulate FAB is a developer/demo-only control. Its implementation is
+  // intentionally preserved below but hidden from the UI. Flip this to true to
+  // re-enable the button for local testing.
+  static const bool _showSimulateButton = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,11 +206,13 @@ class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showSimulateLocationSheet(context),
-        icon: const Icon(Icons.developer_mode),
-        label: const Text('Simulate'),
-      ),
+      floatingActionButton: _showSimulateButton
+          ? FloatingActionButton.extended(
+              onPressed: () => _showSimulateLocationSheet(context),
+              icon: const Icon(Icons.developer_mode),
+              label: const Text('Simulate'),
+            )
+          : null,
     );
   }
 

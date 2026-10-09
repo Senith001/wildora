@@ -93,9 +93,9 @@ void main() {
           findsOneWidget,
         );
 
-        // Verify simulate button
-        expect(find.text('Simulate'), findsOneWidget);
-        expect(find.byIcon(Icons.developer_mode), findsOneWidget);
+        // Verify simulate button is hidden (gated behind _showSimulateButton)
+        expect(find.text('Simulate'), findsNothing);
+        expect(find.byIcon(Icons.developer_mode), findsNothing);
       },
     );
 
@@ -188,7 +188,7 @@ void main() {
       expect(find.text('Dark'), findsOneWidget);
     });
 
-    testWidgets('opens simulate location sheet when FAB tapped', (
+    testWidgets('does not show simulate FAB when disabled', (
       WidgetTester tester,
     ) async {
       alertRepository.setMockActiveAlerts([]);
@@ -205,13 +205,12 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Tap simulate FAB
-      await tester.tap(find.text('Simulate'));
-      await tester.pumpAndSettle();
-
-      // Verify bottom sheet opened
-      expect(find.byKey(const Key('simulateSheetTitle')), findsOneWidget);
-      expect(find.text('Select Animal'), findsOneWidget);
+      // FAB is gated off, so the simulate control and its sheet are unavailable.
+      expect(find.text('Simulate'), findsNothing);
+      expect(find.byIcon(Icons.developer_mode), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(find.byKey(const Key('simulateSheetTitle')), findsNothing);
+      expect(find.text('Select Animal'), findsNothing);
     });
 
     testWidgets('handles error state gracefully', (WidgetTester tester) async {
