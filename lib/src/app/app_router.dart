@@ -6,6 +6,11 @@ import '../features/high_risk_movement/application/animal_monitoring_controller.
 import '../features/high_risk_movement/application/high_risk_zone_detection_service.dart';
 import '../features/high_risk_movement/presentation/monitoring_dashboard_screen.dart';
 import '../features/high_risk_movement/presentation/alert_detail_screen.dart';
+import '../features/manage_patrols/application/patrol_controller.dart';
+import '../features/manage_patrols/data/patrol_local_store.dart';
+import '../features/manage_patrols/data/patrol_location_service.dart';
+import '../features/manage_patrols/data/patrol_sync_service.dart';
+import '../features/manage_patrols/presentation/assigned_patrol_screen.dart';
 import 'theme/theme_controller.dart';
 import '../data/repositories/animal_repository.dart';
 import '../data/repositories/alert_repository.dart';
@@ -22,6 +27,7 @@ class AppRouter {
   static const String home = '/';
   static const String monitoring = '/monitoring';
   static const String alert = '/alert';
+  static const String patrol = '/patrol';
   static const String wildlifeIncident = '/wildlife-incident';
 
   final AnimalMonitoringController _monitoringController;
@@ -84,6 +90,22 @@ class AppRouter {
             alertId: alertId,
             controller: _monitoringController,
           ),
+          settings: settings,
+        );
+
+      case patrol:
+        return MaterialPageRoute(
+          builder: (_) {
+            final localStore = HivePatrolLocalStore();
+            final locationService = PatrolLocationService();
+            final syncService = PatrolSyncService(localStore: localStore);
+            final patrolController = PatrolController(
+              localStore: localStore,
+              locationService: locationService,
+              syncService: syncService,
+            );
+            return AssignedPatrolScreen(controller: patrolController);
+          },
           settings: settings,
         );
 

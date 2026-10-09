@@ -59,6 +59,11 @@ class HomeScreen extends StatelessWidget {
 
                       // High-Risk Movement Monitoring entry point
                       _buildMonitoringCard(context),
+
+                      const SizedBox(height: 16),
+
+                      // Manage Patrols entry point
+                      _buildPatrolCard(context),
                     ],
                   ),
                 ),
@@ -173,6 +178,66 @@ class HomeScreen extends StatelessWidget {
                     Icons.arrow_forward,
                     size: 16,
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build manage patrols module entry card
+  Widget _buildPatrolCard(BuildContext context) {
+    return Card(
+      elevation: 4,
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/patrol'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Icon(
+                Icons.directions_walk,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSecondaryContainer,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Manage Ranger Patrols',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Conduct and track assigned field patrols, log waypoints, and review route coverage',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Open Patrol Module',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
                   ),
                 ],
               ),
