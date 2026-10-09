@@ -131,15 +131,8 @@ class _ZoneMapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Background terrain color (theme-aware green-ish)
-    final backgroundPaint = Paint()
-      ..color = _getTerrainColor()
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      backgroundPaint,
-    );
+    // Draw map-style background first
+    _drawMapBackground(canvas, size);
 
     // Calculate center point and scale
     final centerX = size.width / 2;
@@ -156,12 +149,163 @@ class _ZoneMapPainter extends CustomPainter {
     _drawLocationLabel(canvas, size);
   }
 
-  /// Get terrain background color based on theme
-  Color _getTerrainColor() {
+  /// Draw realistic map-style background with land, water, roads, and greenspace
+  void _drawMapBackground(Canvas canvas, Size size) {
+    // Base land fill - derive from theme colors
     final isDark = theme.brightness == Brightness.dark;
-    return isDark
-        ? const Color(0xFF2E4F2E) // Dark green for dark theme
-        : const Color(0xFFE8F5E8); // Light green for light theme
+    final landColor = isDark
+        ? Color.alphaBlend(
+            theme.colorScheme.surface.withOpacity(0.3),
+            const Color(0xFF2A2F2A), // Dark desaturated slate
+          )
+        : Color.alphaBlend(
+            theme.colorScheme.surfaceVariant.withOpacity(0.2),
+            const Color(0xFFF0EFEA), // Warm off-white/beige
+          );
+
+    final landPaint = Paint()
+      ..color = landColor
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), landPaint);
+
+    // Water areas - muted blue tones
+    final waterColor = isDark
+        ? const Color(0xFF1E3A4A) // Desaturated dark blue
+        : const Color(0xFFAFC9E8); // Muted light blue
+
+    final waterPaint = Paint()
+      ..color = waterColor
+      ..style = PaintingStyle.fill;
+
+    // Draw a diagonal river
+    final riverPath = Path();
+    riverPath.moveTo(0, size.height * 0.3);
+    riverPath.quadraticBezierTo(
+      size.width * 0.4,
+      size.height * 0.2,
+      size.width * 0.7,
+      size.height * 0.4,
+    );
+    riverPath.quadraticBezierTo(
+      size.width * 0.9,
+      size.height * 0.5,
+      size.width,
+      size.height * 0.6,
+    );
+    riverPath.lineTo(size.width, size.height * 0.7);
+    riverPath.quadraticBezierTo(
+      size.width * 0.85,
+      size.height * 0.6,
+      size.width * 0.65,
+      size.height * 0.5,
+    );
+    riverPath.quadraticBezierTo(
+      size.width * 0.35,
+      size.height * 0.3,
+      0,
+      size.height * 0.4,
+    );
+    riverPath.close();
+
+    canvas.drawPath(riverPath, waterPaint);
+
+    // Small lake in upper right
+    final lakeCenter = Offset(size.width * 0.8, size.height * 0.15);
+    final lakeRadius = size.width * 0.08;
+    canvas.drawCircle(lakeCenter, lakeRadius, waterPaint);
+
+    // Greenspace patches - muted green
+    final greenColor = isDark
+        ? const Color(0xFF1A3D1A) // Dark muted green
+        : const Color(0xFFD4E6D4); // Light muted green
+
+    final greenPaint = Paint()
+      ..color = greenColor
+      ..style = PaintingStyle.fill;
+
+    // Park area in lower left
+    final parkPath = Path();
+    parkPath.addOval(
+      Rect.fromCenter(
+        center: Offset(size.width * 0.2, size.height * 0.75),
+        width: size.width * 0.25,
+        height: size.height * 0.3,
+      ),
+    );
+    canvas.drawPath(parkPath, greenPaint);
+
+    // Small forest patch in upper left
+    final forestPath = Path();
+    forestPath.addOval(
+      Rect.fromCenter(
+        center: Offset(size.width * 0.15, size.height * 0.2),
+        width: size.width * 0.15,
+        height: size.height * 0.2,
+      ),
+    );
+    canvas.drawPath(forestPath, greenPaint);
+
+    // Road network - theme-aware greys
+    final majorRoadColor = theme.colorScheme.outline.withOpacity(0.4);
+    final minorRoadColor = theme.colorScheme.outline.withOpacity(0.2);
+
+    final majorRoadPaint = Paint()
+      ..color = majorRoadColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+
+    final minorRoadPaint = Paint()
+      ..color = minorRoadColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    // Major roads
+    // Horizontal road
+    canvas.drawLine(
+      Offset(0, size.height * 0.6),
+      Offset(size.width, size.height * 0.6),
+      majorRoadPaint,
+    );
+
+    // Diagonal road
+    canvas.drawLine(
+      Offset(size.width * 0.1, size.height * 0.9),
+      Offset(size.width * 0.9, size.height * 0.1),
+      majorRoadPaint,
+    );
+
+    // Minor roads - grid pattern
+    final gridPaint = Paint()
+      ..color = minorRoadColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Vertical minor roads
+    for (int i = 1; i < 4; i++) {
+      final x = size.width * (i / 4);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+
+    // Horizontal minor roads
+    for (int i = 1; i < 3; i++) {
+      final y = size.height * (i / 3);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Curved connector road
+    final connectorPath = Path();
+    connectorPath.moveTo(size.width * 0.5, 0);
+    connectorPath.quadraticBezierTo(
+      size.width * 0.3,
+      size.height * 0.3,
+      size.width * 0.4,
+      size.height * 0.6,
+    );
+
+    canvas.drawPath(connectorPath, minorRoadPaint);
   }
 
   /// Calculate scale factor to fit zone within canvas
