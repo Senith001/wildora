@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../features/home/home_screen.dart';
+import 'main_navigation_screen.dart';
 import 'app_router.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
@@ -32,7 +32,7 @@ class WildoraApp extends StatelessWidget {
           darkTheme: AppTheme.dark(),
           themeMode: themeController.themeMode,
           onGenerateRoute: _appRouter.onGenerateRoute,
-          home: const HomeScreen(),
+          home: const MainNavigationScreen(),
         );
       },
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../features/home/home_screen.dart';
+import 'main_navigation_screen.dart';
+import '../features/wildlife-incident/wildlife_incident_demo.dart';
 import '../features/high_risk_movement/application/animal_monitoring_controller.dart';
 import '../features/high_risk_movement/application/high_risk_zone_detection_service.dart';
 import '../features/high_risk_movement/presentation/monitoring_dashboard_screen.dart';
@@ -21,6 +22,7 @@ class AppRouter {
   static const String home = '/';
   static const String monitoring = '/monitoring';
   static const String alert = '/alert';
+  static const String wildlifeIncident = '/wildlife-incident';
 
   final AnimalMonitoringController _monitoringController;
   final ThemeController _themeController;
@@ -37,9 +39,21 @@ class AppRouter {
   /// Unknown routes fall back to home screen.
   Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case wildlifeIncident:
+        return MaterialPageRoute(
+          builder: (_) => WildlifeIncidentDemo(
+            initialTab:
+                settings.arguments is int &&
+                    (settings.arguments as int) >= 0 &&
+                    (settings.arguments as int) <= 2
+                ? settings.arguments as int
+                : 0,
+          ),
+          settings: settings,
+        );
       case home:
         return MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
+          builder: (_) => const MainNavigationScreen(),
           settings: settings,
         );
 
@@ -76,7 +90,7 @@ class AppRouter {
       default:
         // Fallback to home for unknown routes
         return MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
+          builder: (_) => const MainNavigationScreen(),
           settings: settings,
         );
     }
