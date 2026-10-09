@@ -54,6 +54,11 @@ class HomeScreen extends StatelessWidget {
                         _buildWideLayout(context)
                       else
                         _buildNarrowLayout(context),
+
+                      const SizedBox(height: 32),
+
+                      // High-Risk Movement Monitoring entry point
+                      _buildMonitoringCard(context),
                     ],
                   ),
                 ),
@@ -112,6 +117,66 @@ class HomeScreen extends StatelessWidget {
           'Placeholder content',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build monitoring dashboard entry card
+  Widget _buildMonitoringCard(BuildContext context) {
+    return Card(
+      elevation: 4,
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/monitoring'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Icon(
+                Icons.security,
+                size: 48,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'High-Risk Movement Monitoring',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Monitor wildlife movement alerts and coordinate emergency responses',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Open Dashboard',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

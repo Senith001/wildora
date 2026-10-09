@@ -30,7 +30,32 @@ service cloud.firestore {
     // Development access to alerts collection (expires 2026-12-31)
     match /alerts/{alertId} {
       allow read, write: if request.time < timestamp.date(2026, 12, 31);
+      
+      // Development access to alert recipients subcollection (expires 2026-12-31)
+      match /recipients/{officerId} {
+        allow read, write: if request.time < timestamp.date(2026, 12, 31);
+      }
     }
+    
+    // Development access to officers collection (expires 2026-12-31)
+    match /officers/{officerId} {
+      allow read, write: if request.time < timestamp.date(2026, 12, 31);
+    }
+    
+    // Development access to dutyRoster collection (expires 2026-12-31)
+    match /dutyRoster/{date} {
+      allow read, write: if request.time < timestamp.date(2026, 12, 31);
+    }
+    
+    // Development access to userPreferences collection (expires 2026-12-31)
+    match /userPreferences/{userId} {
+      allow read, write: if request.time < timestamp.date(2026, 12, 31);
+    }
+    
+    // NOTE: Production deployment requires per-role authentication:
+    // - Rangers: read/write animals, alerts; read highRiskZones, officers, dutyRoster
+    // - CLOs: read animals, alerts, highRiskZones; read officers
+    // - Users: read/write own userPreferences only
     
     // Deny all other paths by default
     match /{document=**} {
