@@ -1,10 +1,11 @@
 # Human–wildlife conflict reporting
 
 The mobile reporting and separate CLO review workflows are connected to
-`wildora-138e3` Firestore. The user chose to retain the free plan: report text
-syncs to the server, while photographs are retained on the reporting device.
-The form and report details disclose this photo limitation. SMS and real
-responder notification/dispatch services remain deferred.
+`wildora-138e3` Firestore. Firebase remains on its free plan. Photographs are
+saved locally, then delivered privately through Cloudinary and a Cloudflare
+Worker that verifies Firebase identity and report access. Reporter details and
+CLO review display authorized photos across devices. SMS and real responder
+notification/dispatch services remain deferred.
 
 ## Architecture
 
@@ -39,11 +40,12 @@ modify the high-risk movement implementation or its tests.
 3. Generate a stable client reference and persist the complete report and
    attachment locally. A failed write preserves the form and never presents
    the report as saved.
-4. Send the report while the confirmation observes its current state. In the
-   application's free-plan mode, the attachment stays local and the server
-   receives `photoDeliveryStatus: deviceOnly`. The adapter's Cloud Storage
-   upload mode can be enabled after configuring a bucket and its access rules;
-   `AppRouter` currently passes `uploadPhotos: false`.
+4. Send the report while the confirmation observes its current state. The
+   configured private photo gateway uploads attached bytes and returns an
+   authenticated proxy address; the server stores that address with
+   `photoDeliveryStatus: uploaded`, never the image bytes. Cloud Storage is not
+   used. If private delivery is explicitly disabled, attachments remain local
+   and are labelled `deviceOnly`.
 5. Show Submitted only after server acknowledgement and local status persistence.
    Failed or timed-out delivery retains the same ID and a retryable outbox entry.
    A transaction that finds an existing server report preserves later review
@@ -126,13 +128,13 @@ has not changed the live release before updating it.
 
 ## Verification
 
-- `flutter test --no-pub --coverage`: **243 passing tests**, comprising the
-  **144 existing tests** and **99 conflict reporting unit/widget tests**.
+- `flutter test --no-pub --coverage`: **282 passing tests**, comprising the
+  **144 existing tests** and **138 conflict reporting unit/widget tests**.
 - Chrome browser storage: **3 passing tests** using
   `flutter test --no-pub --platform chrome test/browser/conflict_reporting/browser_store_checks.dart`.
 - Feature/test analysis: **no issues**.
-- VM line coverage: **93.9%** overall; application **96.9%**, domain **99.1%**,
-  native data **94.2%**, presentation **92.2%**. Browser storage is verified
+- VM line coverage: **94.0%** overall; application **97.0%**, domain **99.1%**,
+  native data **94.2%**, presentation **92.4%**. Browser storage is verified
   separately and is excluded from the VM coverage denominator.
 - Live Firebase API checks verified CLO sign-in and role claims, denied public
   report access, reporter-owned creation, member denial of officer transitions,
@@ -156,9 +158,10 @@ has not been lowered.
 ## Deferred integrations
 
 The project currently has billing disabled and no Storage bucket. As requested,
-no billing upgrade, SMS provider account or paid service was created. Cloud photo
-transfer, SMS, real push notifications, responder selection/availability and
-manual dispatch assignment are not activated. A production CLO identity must
+no billing upgrade, SMS provider account or paid service was created. Private
+photo transfer now uses Cloudinary and a Cloudflare Worker on free accounts.
+SMS, real push notifications, responder selection/availability and manual
+dispatch assignment are not activated. A production CLO identity must
 replace the fictional training account before real officer operations.
 
 Reference APIs: [Firebase account creation](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signUp),
@@ -223,3 +226,72 @@ mode enabled and both Wi-Fi and mobile data disabled. A network probe returned
 
 Offline map tiles may be unavailable; selected coordinates remain usable for
 report saving. This is expected and is separate from the report outbox.
+
+## Report photographs
+
+Reporter details and CLO review share the same Incident photo section. It
+displays durable local bytes first, then a remote URL when available. Missing
+optional photographs and invalid/unreachable images show explicit feedback.
+Device-only photos are labelled as unavailable on another device; synchronized
+report text does not imply that the photo was uploaded. Private Cloudinary
+delivery is enabled by default through the configured Cloudflare endpoint. Widget tests verify both
+screens after synchronization and repository reload, remote-only device-only
+records, absent photos, image decode failure and failed remote download.
+
+## Private Cloudinary delivery
+
+The deployed endpoint is `https://wildora-conflict-photos.wildora.workers.dev`.
+`CONFLICT_PHOTO_API_URL` may override the default HTTPS origin at build time.
+An explicitly empty value disables remote photo delivery. Only Firebase bearer
+tokens are sent to that configured origin; Cloudinary credentials stay in
+Cloudflare secrets. The ignored `.firebase/conflict-reporting/cloudinary.json`
+is the local owner-readable credential file.
+
+`services/conflict-photos` contains the standalone Worker, deployment settings
+and Node tests. It verifies Firebase ID tokens through the Auth REST API,
+checks report visibility through Firestore, then additionally requires reporter
+ownership or an authorized CLO role. Demo CLO access remains restricted to demo
+incidents; general demo-record visibility does not make the photo public.
+Uploads are limited to JPEG/PNG/WebP, 5 MB and ten requests per minute per user
+at each Cloudflare location. Cloudinary uses authenticated assets with a stable
+owner/report/content-hash public ID and overwrite disabled. Viewing proxies
+private image bytes after access checks; signed Cloudinary URLs and secrets are
+never returned to the app. Responses forbid shared caching.
+
+The Flutter adapter sends raw image bytes, validates acknowledgements against
+the trusted origin/report/reporter, and downloads private photos with the
+Firebase bearer token. Screens retain a single download across rebuilds and
+provide an explicit retry. Local bytes are preferred when present.
+
+For older submitted reports with a device-only photo, the reporter can use
+**Upload saved photo**. The owner-only Firestore update changes just the photo
+reference and delivery status, preserving CLO notes and workflow. A failed
+photo-only retry never reclassifies an accepted report as unsubmitted. Upload
+must run under the original reporter identity; the demo CLO cannot attach
+photos on someone else's behalf. Previously saved bytes must still exist on
+the reporting device.
+
+Verification includes 22 Worker tests (100% line, 84.95% branch coverage), 282
+Flutter tests, and live private uploads/downloads. The live check confirmed
+owner and authorized demo-CLO access, denied anonymous/unrelated-user access,
+blocked unsigned Cloudinary addresses, stable retry references, legacy photo
+delivery and denial of reporter workflow changes. Temporary reports, users
+and Cloudinary assets were removed. Run the live check with
+`scripts/conflict_reporting/verify_private_photos.cjs` after refreshing the
+Firebase CLI login and setting `FIREBASE_CLI_ROOT`.
+
+The free services have quotas and best-effort availability. Background photo
+uploads, automatic cleanup of abandoned unreferenced assets and a full
+production identity/onboarding workflow are not implemented. If upload succeeds
+but report submission is interrupted, retry reuses the content-addressed asset.
+References: [Cloudinary private media](https://cloudinary.com/documentation/control_access_to_media),
+[Cloudinary upload API](https://cloudinary.com/documentation/image_upload_api_reference),
+[Cloudflare rate limits](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/),
+and [Firebase Auth REST](https://firebase.google.com/docs/reference/rest/auth).
+
+Photo screens receive an image reader through `ConflictPhotoScope`; route wiring
+creates the concrete provider. Upload and download contracts are separate so
+each consumer needs only its own operations. Officer transition validation and
+snapshot preparation live in `ConflictReportWorkflow`; the coordinator still
+handles network acknowledgement, busy state and persistence. Existing behavior
+and validation messages are preserved.

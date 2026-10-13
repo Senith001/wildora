@@ -1,0 +1,13 @@
+{
+  "name": "wildora-conflict-photos",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-13",
+  "workers_dev": true,
+  "observability": {"enabled": false},
+  "vars": {
+    "CLOUDINARY_CLOUD_NAME": "jhb3ajil",
+    "FIREBASE_PROJECT_ID": "wildora-138e3",
+    "ALLOWED_ORIGINS": "https://wildora-138e3.web.app,https://wildora-138e3.firebaseapp.com,http://localhost:8080"
+  },
+  "ratelimits": [{"name": "UPLOAD_LIMITER", "namespace_id": "1001", "simple": {"limit": 10, "period": 60}}]
+}

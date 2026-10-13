@@ -237,13 +237,30 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Record Response & Resolve'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Record Response & Resolve'));
     await tester.pumpAndSettle();
     expect(find.text('Enter response notes first.'), findsOneWidget);
     expect(remote.resolutions, 0);
+    // Let validation feedback dismiss before tapping the bottom action again.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Response completed');
-    await tester.ensureVisible(find.text('Record Response & Resolve'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Record Response & Resolve').hitTestable(),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Record Response & Resolve'));
+    await tester.pumpAndSettle();
+    expect(repository.current(report).reportStatus, ReportStatus.resolved);
+    await tester.scrollUntilVisible(
+      find.text('Resolved'),
+      -150,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Resolved'), findsOneWidget);
     expect(find.text('Record Response & Resolve'), findsNothing);
@@ -257,10 +274,14 @@ void main() {
         home: ConflictDetailsScreen(report: report, repository: repository),
       ),
     );
+    await tester.scrollUntilVisible(find.text('Retry Sync'), 150);
     expect(find.text('Retry Sync'), findsOneWidget);
     await tester.ensureVisible(find.text('Retry Sync'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Retry Sync'));
+    await tester.pumpAndSettle();
+    expect(repository.current(report).syncStatus, SyncStatus.synced);
+    await tester.scrollUntilVisible(find.text('Submitted'), -150);
     await tester.pumpAndSettle();
     expect(find.text('Submitted'), findsOneWidget);
     expect(find.text('Retry Sync'), findsNothing);

@@ -11,6 +11,7 @@ import '../application/incident_location_service.dart';
 import '../application/incident_photo_service.dart';
 import 'manual_location_dialog.dart';
 import 'incident_location_map.dart';
+import '../application/conflict_photo_settings.dart';
 
 enum _PhotoChoice { camera, gallery }
 
@@ -346,8 +347,10 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
               ),
               const SizedBox(height: 18),
               _sectionLabel(context, 'PHOTO (OPTIONAL)'),
-              const Text(
-                'Photos are saved on this device. Cloud photo delivery is not enabled on the current free-plan setup.',
+              Text(
+                ConflictPhotoSettings.enabled
+                    ? 'Photos are saved on this device and securely uploaded when the report is sent. Only the reporter and authorized CLOs can view them.'
+                    : 'Photos are saved on this device. Cloud photo delivery is not enabled on the current free-plan setup.',
               ),
               const SizedBox(height: 8),
               Card(

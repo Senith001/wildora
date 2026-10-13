@@ -4,6 +4,8 @@ import '../domain/conflict_report.dart';
 import '../application/conflict_report_repository.dart';
 import 'conflict_theme.dart';
 import 'conflict_repository_view.dart';
+import 'conflict_report_photo.dart';
+import '../application/conflict_photo_settings.dart';
 
 class ConflictDetailsScreen extends StatelessWidget {
   const ConflictDetailsScreen({
@@ -47,18 +49,17 @@ class ConflictDetailsScreen extends StatelessWidget {
               const Text(
                 'DEMO — fictional incident; no responder notification',
               ),
-            if (report.photoDeliveryStatus == 'deviceOnly')
-              const Text(
-                'Photo is saved on the reporter’s device. Cloud photo delivery is not enabled.',
-              ),
-            if (report.photoBytes != null)
-              Image.memory(report.photoBytes!, height: 200, fit: BoxFit.contain)
-            else if (report.photoUrl != null)
-              Image.network(
-                report.photoUrl!,
-                height: 200,
-                errorBuilder: (context, error, stack) =>
-                    const Text('Photo unavailable. Please retry later.'),
+            ConflictReportPhoto(report: report),
+            if (ConflictPhotoSettings.enabled &&
+                report.photoBytes != null &&
+                report.photoDeliveryStatus == 'deviceOnly' &&
+                report.syncStatus == SyncStatus.synced)
+              OutlinedButton.icon(
+                onPressed: repository.isBusy(report)
+                    ? null
+                    : () => repository.sync(report, retryPhoto: true),
+                icon: const Icon(Icons.cloud_upload_outlined),
+                label: const Text('Upload saved photo'),
               ),
             if (repository.errorMessage != null) Text(repository.errorMessage!),
             _detail(

@@ -6,18 +6,20 @@ import '../application/conflict_session.dart';
 import '../domain/conflict_report_ports.dart';
 
 /// Report IDs and attachment paths remain stable across retries. A report is
-/// acknowledged only after both Storage and Firestore have completed.
+/// acknowledged only after configured photo delivery and Firestore complete.
 class FirebaseConflictReportRemote implements ConflictReportRemote {
   FirebaseConflictReportRemote({
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     ConflictSession? session,
     this.uploadPhotos = true,
+    this.photoRemote,
   }) : _providedFirestore = firestore,
        _providedStorage = storage,
        _session = session ?? FirebaseConflictSession();
 
   final bool uploadPhotos;
+  final ConflictPhotoUploader? photoRemote;
   final ConflictSession _session;
   final FirebaseFirestore? _providedFirestore;
   final FirebaseStorage? _providedStorage;
@@ -62,12 +64,16 @@ class FirebaseConflictReportRemote implements ConflictReportRemote {
     String? photoUrl = report.photoUrl;
     final bytes = report.photoBytes;
     if (uploadPhotos && bytes != null && photoUrl == null) {
-      final reference = _storage.ref('conflictReports/${report.id}/photo');
-      await reference.putData(
-        bytes,
-        SettableMetadata(contentType: report.photoContentType),
-      );
-      photoUrl = await reference.getDownloadURL();
+      if (photoRemote != null) {
+        photoUrl = await photoRemote!.upload(report.copyWith(reporterId: uid));
+      } else {
+        final reference = _storage.ref('conflictReports/${report.id}/photo');
+        await reference.putData(
+          bytes,
+          SettableMetadata(contentType: report.photoContentType),
+        );
+        photoUrl = await reference.getDownloadURL();
+      }
     }
     final data = report.toMap(includePhotoBytes: false)
       ..['isDemo'] = report.isDemo || await _session.isDemo()
@@ -85,7 +91,26 @@ class FirebaseConflictReportRemote implements ConflictReportRemote {
     final ref = _firestore.collection(collection).doc(report.id);
     return _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(ref);
-      if (existing.exists) return ConflictReport.fromMap(existing.data()!);
+      if (existing.exists) {
+        final accepted = ConflictReport.fromMap(existing.data()!);
+        // An owner may deliver a previously device-only attachment without
+        // changing the report's review/resolution or creating a second report.
+        if (uploadPhotos &&
+            photoUrl != null &&
+            accepted.photoUrl == null &&
+            accepted.reporterId == uid &&
+            accepted.photoDeliveryStatus == 'deviceOnly') {
+          transaction.update(ref, {
+            'photoUrl': photoUrl,
+            'photoDeliveryStatus': 'uploaded',
+          });
+          return accepted.copyWith(
+            photoUrl: photoUrl,
+            photoDeliveryStatus: 'uploaded',
+          );
+        }
+        return accepted;
+      }
       transaction.set(ref, data);
       return ConflictReport.fromMap(data);
     });

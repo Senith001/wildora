@@ -4,6 +4,7 @@ import '../domain/conflict_report.dart';
 import '../application/conflict_report_repository.dart';
 import 'conflict_theme.dart';
 import 'conflict_repository_view.dart';
+import 'conflict_report_photo.dart';
 
 class CloReviewScreen extends StatefulWidget {
   const CloReviewScreen({
@@ -75,6 +76,8 @@ class _CloReviewScreenState extends State<CloReviewScreen> {
             Text(report.description),
             const SizedBox(height: 8),
             Text('Location: ${report.locationDescription}'),
+            const SizedBox(height: 16),
+            ConflictReportPhoto(report: report),
             const SizedBox(height: 24),
             if (report.reportStatus == ReportStatus.submitted)
               FilledButton(
