@@ -29,7 +29,11 @@ modify the high-risk movement implementation or its tests.
 1. Choose wildlife/conflict types, enter a description and confirm GPS or
    manually entered coordinates. Photographs are optional. GPS permission
    errors and a 15-second timeout show recovery guidance without invented
-   coordinates. The coordinate preview is illustrative, not a live map.
+   coordinates. A real OpenStreetMap preview marks the GPS coordinates. Change
+   opens a map where tapping selects a point; coordinates remain editable as a
+   fallback. The initial Sri Lanka viewport does not count as a selected incident.
+   Cancel preserves the existing location. Map failures show recovery guidance
+   and a retry action without discarding coordinates.
 2. Validate required inputs, coordinate ranges, the 500-character description
    limit and JPEG/PNG/WebP photographs up to 5 MB.
 3. Generate a stable client reference and persist the complete report and
@@ -122,13 +126,13 @@ has not changed the live release before updating it.
 
 ## Verification
 
-- `flutter test --no-pub --coverage`: **237 passing tests**, comprising the
-  **144 existing tests** and **93 conflict reporting unit/widget tests**.
+- `flutter test --no-pub --coverage`: **243 passing tests**, comprising the
+  **144 existing tests** and **99 conflict reporting unit/widget tests**.
 - Chrome browser storage: **3 passing tests** using
   `flutter test --no-pub --platform chrome test/browser/conflict_reporting/browser_store_checks.dart`.
 - Feature/test analysis: **no issues**.
 - VM line coverage: **93.9%** overall; application **96.9%**, domain **99.1%**,
-  native data **94.2%**, presentation **92.1%**. Browser storage is verified
+  native data **94.2%**, presentation **92.2%**. Browser storage is verified
   separately and is excluded from the VM coverage denominator.
 - Live Firebase API checks verified CLO sign-in and role claims, denied public
   report access, reporter-owned creation, member denial of officer transitions,
@@ -160,3 +164,62 @@ replace the fictional training account before real officer operations.
 Reference APIs: [Firebase account creation](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signUp),
 [Cloud Storage upload](https://firebase.google.com/docs/storage/flutter/upload-files),
 and [Firestore offline behavior](https://firebase.google.com/docs/firestore/manage-data/enable-offline).
+
+## Map provider
+
+The conflict-reporting map uses `flutter_map` 8.3 with OpenStreetMap standard
+tiles, visible linked attribution and the `com.wildora.wildora` application
+identifier. Native tiles use flutter_map's default HTTP-aware disk cache; web
+tiles use browser caching. Only visible tiles are requested (`panBuffer: 0`);
+there is no bulk downloading or offline-map feature. Public tiles require no
+API key or billing setup but have best-effort availability and must follow the
+[OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/).
+Report saving still works without map tiles; GPS or valid manually entered
+coordinates can be used.
+
+A different compatible tile endpoint can be configured with
+`--dart-define=CONFLICT_MAP_TILE_URL=https://.../{z}/{x}/{y}.png`. Before
+switching providers, also review its attribution, authentication and usage
+requirements; the current attribution credits OpenStreetMap contributors.
+
+Map widget tests use injected in-memory tiles, so they never call the public
+map service. They cover actual tap gestures, coordinate confirmation and cancel,
+GPS pin accuracy, unchanged read-only previews, and failed-tile retry recovery.
+
+## Submission rules regression
+
+Idempotent submission reads a document before creating it. A signed-in user
+may look up an unused conflict-report ID; this returns a missing document.
+Existing documents still require reporter ownership, demo visibility or CLO
+authorization. Without this narrow `get` allowance, first-time transactions
+fail with permission denied even when internet access is working.
+
+`scripts/conflict_reporting/verify_submission_access.cjs` verifies the unused-ID
+lookup, subsequent creation, owner access, and denied public/other-member
+access against the live rules. It requires the existing Firebase CLI login and
+`FIREBASE_CLI_ROOT`, creates explicitly labelled temporary data and removes it
+in `finally`. The Android SDK retry was also verified end to end: the original
+saved report changed from Sync Failed to Submitted / Synced with its original
+report reference.
+
+## Verified emulator offline flow
+
+An Android emulator run on 2026-10-10 verified the following with airplane
+mode enabled and both Wi-Fi and mobile data disabled. A network probe returned
+`Network is unreachable`. The description was clearly labelled
+`DEMO OFFLINE TEST - fictional incident for testing only`.
+
+- Submission immediately returned Report Saved / Pending Sync with a stable
+  reference; the failed send remained Saved Offline / Sync Failed.
+- Offline Retry Sync retained the local report and did not claim acceptance.
+  A direct Firebase check confirmed the report did not exist on the server.
+- Force-stopping and relaunching the app offline preserved the report in
+  My Reports and its durable device file.
+- Restoring connectivity automatically submitted the pending report without
+  pressing Retry again. Both My Reports and the server confirmed Submitted /
+  Synced under the original ID, with one additional history entry.
+- Airplane mode, Wi-Fi and mobile data were restored to their original states.
+  The labelled test report remains in My Reports as demonstration evidence.
+
+Offline map tiles may be unavailable; selected coordinates remain usable for
+report saving. This is expected and is separate from the report outbox.

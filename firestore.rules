@@ -62,6 +62,10 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.get('role', '') == 'clo';
     }
     match /conflictReports/{reportId} {
+      // Idempotent submission checks an unused ID before creating the report.
+      // Existing reports still require the ownership/CLO read policy below.
+      allow get: if request.auth != null &&
+        !exists(/databases/$(database)/documents/conflictReports/$(reportId));
       allow read: if request.auth != null && ((conflictClo() &&
         (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false))) ||
         resource.data.get('isDemo', false) == true ||

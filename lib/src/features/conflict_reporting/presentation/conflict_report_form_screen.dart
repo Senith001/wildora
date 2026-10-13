@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../domain/conflict_report.dart';
@@ -9,6 +10,7 @@ import '../application/conflict_report_repository.dart';
 import '../application/incident_location_service.dart';
 import '../application/incident_photo_service.dart';
 import 'manual_location_dialog.dart';
+import 'incident_location_map.dart';
 
 enum _PhotoChoice { camera, gallery }
 
@@ -18,10 +20,12 @@ class ConflictReportFormScreen extends StatefulWidget {
     required this.repository,
     this.locationService,
     this.photoService,
+    this.mapTileProvider,
   });
   final ConflictReportRepository repository;
   final IncidentLocationService? locationService;
   final IncidentPhotoService? photoService;
+  final TileProvider? mapTileProvider;
 
   @override
   State<ConflictReportFormScreen> createState() =>
@@ -61,6 +65,7 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
             : location.replaceFirst(RegExp(r' \(manual\)$'), ''),
         latitude: latitude,
         longitude: longitude,
+        tileProvider: widget.mapTileProvider,
       ),
     );
     if (!mounted || result == null) return;
@@ -202,8 +207,6 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-        foregroundColor: Theme.of(context).colorScheme.primary,
         leading: const BackButton(),
         title: const Text(
           'Report Conflict',
@@ -292,6 +295,7 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
                       _LocationPreview(
                         latitude: latitude!,
                         longitude: longitude!,
+                        tileProvider: widget.mapTileProvider,
                       )
                     else
                       const Padding(
@@ -458,67 +462,29 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
 }
 
 class _LocationPreview extends StatelessWidget {
-  const _LocationPreview({required this.latitude, required this.longitude});
+  const _LocationPreview({
+    required this.latitude,
+    required this.longitude,
+    this.tileProvider,
+  });
   final double latitude;
   final double longitude;
+  final TileProvider? tileProvider;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 116,
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        CustomPaint(
-          painter: _MapPreviewPainter(
-            lineColor: Theme.of(context).colorScheme.primaryContainer,
-          ),
+  Widget build(BuildContext context) => Column(
+    children: [
+      IncidentLocationMap(
+        latitude: latitude,
+        longitude: longitude,
+        tileProvider: tileProvider,
+      ),
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          '${latitude.toStringAsFixed(3)}, ${longitude.toStringAsFixed(3)}',
         ),
-        Center(
-          child: Icon(
-            Icons.location_pin,
-            size: 34,
-            color: Theme.of(context).colorScheme.error,
-          ),
-        ),
-        Positioned(
-          right: 12,
-          bottom: 8,
-          child: Text(
-            '${latitude.toStringAsFixed(3)}, ${longitude.toStringAsFixed(3)}',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              backgroundColor: Theme.of(context).colorScheme.surface
-                  .withValues(alpha: .8),
-            ),
-          ),
-        ),
-      ],
-    ),
+      ),
+    ],
   );
-}
-
-class _MapPreviewPainter extends CustomPainter {
-  const _MapPreviewPainter({required this.lineColor});
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final background = Paint()..color = const Color(0xFF7C956B);
-    canvas.drawRect(Offset.zero & size, background);
-    final contour = Paint()
-      ..color = lineColor.withValues(alpha: .7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    for (var offset = -size.height; offset < size.width; offset += 38) {
-      final path = Path()
-        ..moveTo(offset, size.height)
-        ..quadraticBezierTo(offset + 42, size.height * .45, offset + 90, 0);
-      canvas.drawPath(path, contour);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapPreviewPainter oldDelegate) => false;
 }

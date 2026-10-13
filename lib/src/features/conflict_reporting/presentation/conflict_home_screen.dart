@@ -35,30 +35,10 @@ class _ConflictReportingHomeState extends State<ConflictReportingHome> {
       animation: repository,
       builder: (context, _) => Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-          foregroundColor: Theme.of(context).colorScheme.primary,
-          title: const Text('Community Conservation'),
-        ),
+        appBar: AppBar(title: const Text('Community Conservation')),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            Text(
-              'Protecting people.\nProtecting wildlife.',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w800,
-                height: 1.05,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Report incidents quickly so our community liaison team can respond.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
             _statusBanner(context, repository),
             const SizedBox(height: 18),
             Card(
