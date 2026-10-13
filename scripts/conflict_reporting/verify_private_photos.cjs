@@ -34,6 +34,9 @@ async function main() {
   const owner=await authenticate('signUp',{returnSecureToken:true});users.push(owner);
   const other=await authenticate('signUp',{returnSecureToken:true});users.push(other);
   const clo=await authenticate('signInWithPassword',{email:cloCredentials.email,password:cloCredentials.password,returnSecureToken:true});
+  const cloClaims=JSON.parse(Buffer.from(clo.idToken.split('.')[1], 'base64url').toString());
+  if(cloClaims.role!=='clo')throw Error('Verification account is not an authorized CLO');
+  const restrictedClo=cloClaims.isDemo===true;
   const id='private-photo-test-'+crypto.randomBytes(6).toString('hex');
   assets.add(`wildora/${owner.localId}/${id}/${crypto.createHash('sha256').update(pixels).digest('hex')}`);
   const uploaded=await photoUpload(owner,id);
@@ -54,10 +57,12 @@ async function main() {
   if(!image.headers.get('Content-Type').startsWith('image/')||!(await image.arrayBuffer()).byteLength)throw Error('Image bytes missing');
   await requireStatus(await fetch(uploaded.photoUrl),401,'unauthenticated photo access denied');
   await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+other.idToken}}),403,'unrelated reporter photo access denied');
-  await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+clo.idToken}}),403,'demo CLO cannot view real-report evidence');
-  await requireStatus(await fetch(`${base}/conflictReports/${id}?updateMask.fieldPaths=isDemo`,{method:'PATCH',headers:headers(oauth),body:JSON.stringify({fields:fields({isDemo:true})})}),200,'temporary fixture explicitly classified as demo');
-  await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+clo.idToken}}),200,'authorized demo CLO can view demo image');
-  await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+other.idToken}}),403,'demo record visibility does not make its photo public');
+  await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+clo.idToken}}),restrictedClo?403:200,restrictedClo?'demo CLO cannot view real-report evidence':'full CLO can view evidence submitted by another reporter');
+  if(restrictedClo) {
+   await requireStatus(await fetch(`${base}/conflictReports/${id}?updateMask.fieldPaths=isDemo`,{method:'PATCH',headers:headers(oauth),body:JSON.stringify({fields:fields({isDemo:true})})}),200,'temporary fixture explicitly classified as demo');
+   await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+clo.idToken}}),200,'authorized CLO can view demo image');
+   await requireStatus(await fetch(uploaded.photoUrl,{headers:{Authorization:'Bearer '+other.idToken}}),403,'demo record visibility does not make its photo public');
+  }
   const direct=await fetch(`https://res.cloudinary.com/${cloud.cloudName}/image/authenticated/${[...assets][0]}.png`);
   if(direct.ok)throw Error('Unsigned Cloudinary address exposed private asset');
   console.log('Verified unsigned Cloudinary address cannot reveal the image.');

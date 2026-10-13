@@ -75,9 +75,12 @@ response notes required for resolution. Guarded transactions prevent concurrent
 or stale transitions. Remote review updates are saved locally; older snapshots
 cannot roll back newer local workflow state.
 
-A fictional training account, `demo-clo@wildora.example`, was provisioned through
-the Firebase API. Its `isDemo: true` claim restricts cloud access and review to
-demo incidents. This is not a production officer identity. Generated credentials
+The existing account, `demo-clo@wildora.example`, was initially provisioned for
+training and promoted to full CLO access at the user's request on 14 October
+2026. Its claims are `role: clo` and `isDemo: false`, allowing access to all
+synchronized conflict reports regardless of the submitting device. The email
+and password are unchanged. Other accounts with `isDemo: true` remain restricted
+to demo incidents. Generated credentials
 are stored only in the owner-readable, Git-ignored file
 `.firebase/conflict-reporting/demo-clo.json`; credentials are not embedded in
 source or logged by the provisioning script.

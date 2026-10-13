@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -25,6 +27,13 @@ class NoPhotoService implements IncidentPhotoService {
   Future<IncidentPhoto?> select(ImageSource source) async => null;
 }
 
+class SequencePhotoService implements IncidentPhotoService {
+  SequencePhotoService(this.photos);
+  final List<IncidentPhoto?> photos;
+  @override
+  Future<IncidentPhoto?> select(ImageSource source) async => photos.removeAt(0);
+}
+
 void main() {
   late FakeReportStore store;
   late FakeReportRemote remote;
@@ -45,7 +54,10 @@ void main() {
     await remote.events.close();
   });
 
-  Future<void> form(WidgetTester tester) async {
+  Future<void> form(
+    WidgetTester tester, {
+    IncidentPhotoService? photoService,
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -55,7 +67,7 @@ void main() {
         home: ConflictReportFormScreen(
           repository: repository,
           locationService: location,
-          photoService: NoPhotoService(),
+          photoService: photoService ?? NoPhotoService(),
           mapTileProvider: MapTestTiles(),
         ),
         onGenerateRoute: (settings) => MaterialPageRoute<void>(
@@ -82,6 +94,66 @@ void main() {
     await tester.tap(find.text('Use Current Location'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'photo preview cannot delete evidence and cancelling change retains it',
+    (tester) async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOYeWbmfwAG/gL+8h1avgAAAABJRU5ErkJggg==',
+      );
+      final photo = IncidentPhoto('incident.png', bytes, 'image/png');
+      await form(tester, photoService: SequencePhotoService([photo, null]));
+      await tester.ensureVisible(find.text('+ Add Photo'));
+      await tester.tap(find.text('+ Add Photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose from gallery'));
+      await tester.pumpAndSettle();
+      final preview = find.bySemanticsLabel('Selected incident photo');
+      expect(preview, findsOneWidget);
+      await tester.ensureVisible(preview);
+      await tester.tap(preview);
+      await tester.pumpAndSettle();
+      expect(preview, findsOneWidget);
+      await tester.ensureVisible(find.text('Change Photo'));
+      await tester.tap(find.text('Change Photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose from gallery'));
+      await tester.pumpAndSettle();
+      expect(preview, findsOneWidget);
+      expect(
+        tester
+            .widget<Image>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is Image &&
+                    widget.semanticLabel == 'Selected incident photo',
+              ),
+            )
+            .image,
+        isA<MemoryImage>(),
+      );
+      expect(
+        (tester
+                    .widget<Image>(
+                      find.byWidgetPredicate(
+                        (widget) =>
+                            widget is Image &&
+                            widget.semanticLabel == 'Selected incident photo',
+                      ),
+                    )
+                    .image
+                as MemoryImage)
+            .bytes,
+        bytes,
+      );
+      await tester.ensureVisible(find.text('Remove Photo'));
+      await tester.tap(find.text('Remove Photo'));
+      await tester.pumpAndSettle();
+      expect(preview, findsNothing);
+      expect(find.text('+ Add Photo'), findsOneWidget);
+      expect(store.saved, isEmpty);
+    },
+  );
 
   testWidgets('invalid submission shows inline errors and never saves', (
     tester,

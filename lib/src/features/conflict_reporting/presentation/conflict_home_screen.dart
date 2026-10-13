@@ -35,7 +35,12 @@ class _ConflictReportingHomeState extends State<ConflictReportingHome> {
       animation: repository,
       builder: (context, _) => Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-        appBar: AppBar(title: const Text('Community Conservation')),
+        appBar: AppBar(
+          title: const Text(
+            'Community Conservation',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [

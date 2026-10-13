@@ -19,6 +19,7 @@ import '../features/conflict_reporting/data/local_store_factory.dart';
 import '../features/conflict_reporting/data/private_conflict_photo_remote.dart';
 import '../features/conflict_reporting/domain/conflict_report_ports.dart';
 import '../features/conflict_reporting/presentation/conflict_photo_scope.dart';
+import '../features/conflict_reporting/presentation/conflict_theme.dart';
 
 /// Route table for Wildora app navigation with dependency injection.
 ///
@@ -53,8 +54,9 @@ class AppRouter {
              ),
            );
 
-  Widget _withConflictPhotos(Widget child) =>
-      ConflictPhotoScope(downloader: _conflictPhotos, child: child);
+  Widget _withConflictPhotos(Widget child) => ConflictFeatureTheme(
+    child: ConflictPhotoScope(downloader: _conflictPhotos, child: child),
+  );
 
   /// Generate route for named routing with dependency injection.
   ///

@@ -22,25 +22,38 @@ class ConflictDetailsScreen extends StatelessWidget {
     builder: (context, _) {
       final report = repository.current(this.report);
       return Scaffold(
-        appBar: AppBar(title: Text(report.referenceNumber)),
+        appBar: AppBar(
+          title: const Text(
+            'Report Details',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  Icons.info_outline,
-                  color: context.reportStatusColor(report.reportStatus),
-                ),
-                title: Text(report.reportStatus.label),
-                subtitle: Text(
-                  report.syncStatus.label,
-                  style: TextStyle(
-                    color: context.syncStatusColor(report.syncStatus),
-                  ),
-                ),
-              ),
+            Text(
+              report.referenceNumber,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ConflictStatusBadge(
+                  label: report.reportStatus.label,
+                  color: context.reportStatusColor(report.reportStatus),
+                  icon: Icons.assignment_outlined,
+                ),
+                ConflictStatusBadge(
+                  label: report.syncStatus.label,
+                  color: context.syncStatusColor(report.syncStatus),
+                  icon: Icons.cloud_outlined,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             _detail(context, 'Wildlife', report.wildlifeType.label),
             _detail(context, 'Conflict', report.conflictType.label),
             _detail(context, 'Location', report.locationDescription),
@@ -89,9 +102,13 @@ class ConflictDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.labelLarge),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 4),
-          Text(value),
+          Text(value, style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),
     ),

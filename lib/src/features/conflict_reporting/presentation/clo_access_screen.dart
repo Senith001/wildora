@@ -79,7 +79,12 @@ class _CloAccessScreenState extends State<CloAccessScreen> {
   Widget build(BuildContext context) {
     if (_allowed) return widget.child;
     return Scaffold(
-      appBar: AppBar(title: const Text('CLO sign-in')),
+      appBar: AppBar(
+        title: const Text(
+          'CLO sign-in',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
