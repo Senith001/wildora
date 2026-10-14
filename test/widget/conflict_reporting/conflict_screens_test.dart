@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wildora/src/features/conflict_reporting/conflict_reporting.dart';
 import 'package:wildora/src/features/conflict_reporting/application/incident_location_service.dart';
 import 'package:wildora/src/features/conflict_reporting/application/incident_photo_service.dart';
 
 import '../../unit/conflict_reporting/fakes.dart';
+import 'map_test_tiles.dart';
 
 class FakeLocationService implements IncidentLocationService {
   bool fail = false;
@@ -21,6 +25,13 @@ class FakeLocationService implements IncidentLocationService {
 class NoPhotoService implements IncidentPhotoService {
   @override
   Future<IncidentPhoto?> select(ImageSource source) async => null;
+}
+
+class SequencePhotoService implements IncidentPhotoService {
+  SequencePhotoService(this.photos);
+  final List<IncidentPhoto?> photos;
+  @override
+  Future<IncidentPhoto?> select(ImageSource source) async => photos.removeAt(0);
 }
 
 void main() {
@@ -43,7 +54,10 @@ void main() {
     await remote.events.close();
   });
 
-  Future<void> form(WidgetTester tester) async {
+  Future<void> form(
+    WidgetTester tester, {
+    IncidentPhotoService? photoService,
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -53,7 +67,8 @@ void main() {
         home: ConflictReportFormScreen(
           repository: repository,
           locationService: location,
-          photoService: NoPhotoService(),
+          photoService: photoService ?? NoPhotoService(),
+          mapTileProvider: MapTestTiles(),
         ),
         onGenerateRoute: (settings) => MaterialPageRoute<void>(
           builder: (_) => ConflictConfirmationScreen(
@@ -79,6 +94,66 @@ void main() {
     await tester.tap(find.text('Use Current Location'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'photo preview cannot delete evidence and cancelling change retains it',
+    (tester) async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOYeWbmfwAG/gL+8h1avgAAAABJRU5ErkJggg==',
+      );
+      final photo = IncidentPhoto('incident.png', bytes, 'image/png');
+      await form(tester, photoService: SequencePhotoService([photo, null]));
+      await tester.ensureVisible(find.text('+ Add Photo'));
+      await tester.tap(find.text('+ Add Photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose from gallery'));
+      await tester.pumpAndSettle();
+      final preview = find.bySemanticsLabel('Selected incident photo');
+      expect(preview, findsOneWidget);
+      await tester.ensureVisible(preview);
+      await tester.tap(preview);
+      await tester.pumpAndSettle();
+      expect(preview, findsOneWidget);
+      await tester.ensureVisible(find.text('Change Photo'));
+      await tester.tap(find.text('Change Photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose from gallery'));
+      await tester.pumpAndSettle();
+      expect(preview, findsOneWidget);
+      expect(
+        tester
+            .widget<Image>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is Image &&
+                    widget.semanticLabel == 'Selected incident photo',
+              ),
+            )
+            .image,
+        isA<MemoryImage>(),
+      );
+      expect(
+        (tester
+                    .widget<Image>(
+                      find.byWidgetPredicate(
+                        (widget) =>
+                            widget is Image &&
+                            widget.semanticLabel == 'Selected incident photo',
+                      ),
+                    )
+                    .image
+                as MemoryImage)
+            .bytes,
+        bytes,
+      );
+      await tester.ensureVisible(find.text('Remove Photo'));
+      await tester.tap(find.text('Remove Photo'));
+      await tester.pumpAndSettle();
+      expect(preview, findsNothing);
+      expect(find.text('+ Add Photo'), findsOneWidget);
+      expect(store.saved, isEmpty);
+    },
+  );
 
   testWidgets('invalid submission shows inline errors and never saves', (
     tester,
@@ -130,6 +205,44 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('map-selected coordinates are persisted and sent in the report', (
+    tester,
+  ) async {
+    await form(tester);
+    await fill(tester);
+    await tester.tap(find.text('Change'));
+    await tester.pumpAndSettle();
+    final map = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(FlutterMap),
+    );
+    await tester.tapAt(tester.getCenter(map) + const Offset(60, 25));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    final fields = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextFormField),
+    );
+    final latitude = double.parse(
+      tester.widget<TextFormField>(fields.at(1)).controller!.text,
+    );
+    final longitude = double.parse(
+      tester.widget<TextFormField>(fields.at(2)).controller!.text,
+    );
+    expect(latitude, isNot(7.291));
+    expect(longitude, isNot(80.635));
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Submit Conflict Report'));
+    await tester.tap(find.text('Submit Conflict Report'));
+    await tester.pumpAndSettle();
+    final saved = ConflictReport.fromMap(store.saved.values.single);
+    expect(saved.latitude, latitude);
+    expect(saved.longitude, longitude);
+    expect(remote.submitted.values.single.latitude, latitude);
+    expect(remote.submitted.values.single.longitude, longitude);
+  });
 
   testWidgets('optional photo is not required for acknowledged submission', (
     tester,
@@ -196,13 +309,30 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Record Response & Resolve'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Record Response & Resolve'));
     await tester.pumpAndSettle();
     expect(find.text('Enter response notes first.'), findsOneWidget);
     expect(remote.resolutions, 0);
+    // Let validation feedback dismiss before tapping the bottom action again.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Response completed');
-    await tester.ensureVisible(find.text('Record Response & Resolve'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Record Response & Resolve').hitTestable(),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Record Response & Resolve'));
+    await tester.pumpAndSettle();
+    expect(repository.current(report).reportStatus, ReportStatus.resolved);
+    await tester.scrollUntilVisible(
+      find.text('Resolved'),
+      -150,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Resolved'), findsOneWidget);
     expect(find.text('Record Response & Resolve'), findsNothing);
@@ -216,10 +346,14 @@ void main() {
         home: ConflictDetailsScreen(report: report, repository: repository),
       ),
     );
+    await tester.scrollUntilVisible(find.text('Retry Sync'), 150);
     expect(find.text('Retry Sync'), findsOneWidget);
     await tester.ensureVisible(find.text('Retry Sync'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Retry Sync'));
+    await tester.pumpAndSettle();
+    expect(repository.current(report).syncStatus, SyncStatus.synced);
+    await tester.scrollUntilVisible(find.text('Submitted'), -150);
     await tester.pumpAndSettle();
     expect(find.text('Submitted'), findsOneWidget);
     expect(find.text('Retry Sync'), findsNothing);

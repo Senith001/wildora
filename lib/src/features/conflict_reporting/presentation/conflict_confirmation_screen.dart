@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/conflict_report.dart';
+import 'conflict_theme.dart';
 import '../application/conflict_report_repository.dart';
 
 class ConflictConfirmationScreen extends StatelessWidget {
@@ -25,6 +26,9 @@ class ConflictConfirmationScreen extends StatelessWidget {
     final sending = report.syncStatus == SyncStatus.syncing;
     final pending = report.syncStatus != SyncStatus.synced;
     final colors = Theme.of(context).colorScheme;
+    final statusColor = pending
+        ? context.syncStatusColor(report.syncStatus)
+        : context.reportStatusColor(report.reportStatus);
     return Scaffold(
       backgroundColor: colors.surfaceContainerLowest,
       body: SafeArea(
@@ -103,13 +107,13 @@ class ConflictConfirmationScreen extends StatelessWidget {
                                 ? 'Pending Response'
                                 : report.reportStatus.label,
                             style: TextStyle(
-                              color: colors.error,
-                              fontSize: 11,
+                              color: statusColor,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          side: BorderSide(color: colors.error),
-                          backgroundColor: colors.surface,
+                          side: BorderSide(color: statusColor),
+                          backgroundColor: statusColor.withValues(alpha: .08),
                           visualDensity: VisualDensity.compact,
                         ),
                       ],

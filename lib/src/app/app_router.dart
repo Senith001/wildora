@@ -25,6 +25,10 @@ import '../features/conflict_reporting/conflict_reporting.dart';
 import '../features/conflict_reporting/presentation/clo_access_screen.dart';
 import '../features/conflict_reporting/data/firebase_conflict_report_remote.dart';
 import '../features/conflict_reporting/data/local_store_factory.dart';
+import '../features/conflict_reporting/data/private_conflict_photo_remote.dart';
+import '../features/conflict_reporting/domain/conflict_report_ports.dart';
+import '../features/conflict_reporting/presentation/conflict_photo_scope.dart';
+import '../features/conflict_reporting/presentation/conflict_theme.dart';
 
 /// Route table for Wildora app navigation with dependency injection.
 ///
@@ -44,16 +48,32 @@ class AppRouter {
   final ThemeController _themeController;
   final ConflictReportRepository conflictRepository;
   PatrolController? _patrolController;
+  final ConflictPhotoRemote? _conflictPhotos;
 
   AppRouter({
-    required this._monitoringController,
-    required this._themeController,
+    required AnimalMonitoringController monitoringController,
+    required ThemeController themeController,
     ConflictReportRepository? conflictRepository,
-    this._patrolController,
-  }) : conflictRepository = conflictRepository ?? ConflictReportRepository(
-         store: createConflictReportStore(),
-         remote: FirebaseConflictReportRemote(uploadPhotos: false),
-       );
+    PatrolController? patrolController,
+    ConflictPhotoRemote? conflictPhotos,
+  }) : _monitoringController = monitoringController,
+       _themeController = themeController,
+       _patrolController = patrolController,
+       _conflictPhotos = conflictPhotos ?? ConflictPhotoConfiguration.create(),
+       conflictRepository =
+           conflictRepository ??
+           ConflictReportRepository(
+             store: createConflictReportStore(),
+             remote: FirebaseConflictReportRemote(
+               uploadPhotos: ConflictPhotoConfiguration.enabled,
+               photoRemote:
+                   conflictPhotos ?? ConflictPhotoConfiguration.create(),
+             ),
+           );
+
+  Widget _withConflictPhotos(Widget child) => ConflictFeatureTheme(
+    child: ConflictPhotoScope(downloader: _conflictPhotos, child: child),
+  );
 
   PatrolController _getOrCreatePatrolController() {
     if (_patrolController != null) return _patrolController!;
@@ -111,7 +131,6 @@ class AppRouter {
             ),
             settings: settings,
           );
-
         }
 
         return MaterialPageRoute(
@@ -152,50 +171,64 @@ class AppRouter {
         );
       case '/conflict':
         return MaterialPageRoute(
-          builder: (_) => ConflictReportingHome(repository: conflictRepository),
+          builder: (_) => _withConflictPhotos(
+            ConflictReportingHome(repository: conflictRepository),
+          ),
           settings: settings,
         );
       case '/conflict/report':
         return MaterialPageRoute(
-          builder: (_) => ConflictReportFormScreen(repository: conflictRepository),
+          builder: (_) => _withConflictPhotos(
+            ConflictReportFormScreen(repository: conflictRepository),
+          ),
           settings: settings,
         );
       case '/conflict/reports':
         return MaterialPageRoute(
-          builder: (_) => MyConflictReportsScreen(repository: conflictRepository),
+          builder: (_) => _withConflictPhotos(
+            MyConflictReportsScreen(repository: conflictRepository),
+          ),
           settings: settings,
         );
       case '/conflict/confirmation':
         return MaterialPageRoute(
-          builder: (_) => ConflictConfirmationScreen(
-            report: settings.arguments! as ConflictReport,
-            repository: conflictRepository,
+          builder: (_) => _withConflictPhotos(
+            ConflictConfirmationScreen(
+              report: settings.arguments! as ConflictReport,
+              repository: conflictRepository,
+            ),
           ),
           settings: settings,
         );
       case '/conflict/details':
         return MaterialPageRoute(
-          builder: (_) => ConflictDetailsScreen(
-            report: settings.arguments! as ConflictReport,
-            repository: conflictRepository,
+          builder: (_) => _withConflictPhotos(
+            ConflictDetailsScreen(
+              report: settings.arguments! as ConflictReport,
+              repository: conflictRepository,
+            ),
           ),
           settings: settings,
         );
       case '/conflict/clo':
         return MaterialPageRoute(
-          builder: (_) => CloAccessScreen(
-            repository: conflictRepository,
-            child: CloDashboardScreen(repository: conflictRepository),
+          builder: (_) => _withConflictPhotos(
+            CloAccessScreen(
+              repository: conflictRepository,
+              child: CloDashboardScreen(repository: conflictRepository),
+            ),
           ),
           settings: settings,
         );
       case '/conflict/clo/review':
         return MaterialPageRoute(
-          builder: (_) => CloAccessScreen(
-            repository: conflictRepository,
-            child: CloReviewScreen(
-              report: settings.arguments! as ConflictReport,
+          builder: (_) => _withConflictPhotos(
+            CloAccessScreen(
               repository: conflictRepository,
+              child: CloReviewScreen(
+                report: settings.arguments! as ConflictReport,
+                repository: conflictRepository,
+              ),
             ),
           ),
           settings: settings,
@@ -247,9 +280,12 @@ class AppRouter {
       monitoringController: monitoringController,
       themeController: themeController,
       conflictRepository: ConflictReportRepository(
-         store: createConflictReportStore(),
-         remote: FirebaseConflictReportRemote(uploadPhotos: false),
-       ),
+        store: createConflictReportStore(),
+        remote: FirebaseConflictReportRemote(
+          uploadPhotos: ConflictPhotoConfiguration.enabled,
+          photoRemote: ConflictPhotoConfiguration.create(),
+        ),
+      ),
     );
   }
 }

@@ -17,9 +17,14 @@ class CloDashboardScreen extends StatelessWidget {
       int count(ReportStatus status) =>
           reports.where((report) => report.reportStatus == status).length;
       return Scaffold(
-        appBar: AppBar(title: const Text('CLO Dashboard')),
+        appBar: AppBar(
+          title: const Text(
+            'CLO Dashboard',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
             if (repository.errorMessage != null)
               Padding(
@@ -44,22 +49,12 @@ class CloDashboardScreen extends StatelessWidget {
                 ),
               ),
             ...reports.map(
-              (report) => Card(
-                child: ListTile(
-                  leading: Icon(
-                    Icons.assignment,
-                    color: context.reportStatusColor(report.reportStatus),
-                  ),
-                  title: Text(report.referenceNumber),
-                  subtitle: Text(
-                    '${report.wildlifeType.label} • ${report.conflictType.label}',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    '/conflict/clo/review',
-                    arguments: report,
-                  ),
+              (report) => ConflictReportListCard(
+                report: report,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  '/conflict/clo/review',
+                  arguments: report,
                 ),
               ),
             ),

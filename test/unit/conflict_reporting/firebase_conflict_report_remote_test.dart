@@ -9,7 +9,21 @@ import 'package:wildora/src/features/conflict_reporting/domain/conflict_report.d
 
 import 'fakes.dart';
 
+import 'package:wildora/src/features/conflict_reporting/domain/conflict_report_ports.dart';
+
 import 'package:wildora/src/features/conflict_reporting/application/conflict_session.dart';
+
+class TestPhotoRemote implements ConflictPhotoUploader {
+  int uploads = 0;
+  @override
+  Future<String> upload(ConflictReport report) async {
+    uploads++;
+    if (report.reporterId != 'test-reporter') {
+      throw StateError('Reporter missing');
+    }
+    return 'https://photos.example/reports/${report.id}/photo/example.jpg';
+  }
+}
 
 class TestSession implements ConflictSession {
   bool allowed = true;
@@ -231,6 +245,52 @@ void main() {
       expect(firestore.records['test-1']!.containsKey('photoBytes'), isFalse);
     },
   );
+  test(
+    'private photo gateway bypasses Firebase Storage and records its URL',
+    () async {
+      final photos = TestPhotoRemote();
+      final gateway = FirebaseConflictReportRemote(
+        firestore: firestore,
+        storage: storage,
+        session: TestSession(),
+        photoRemote: photos,
+      );
+      final accepted = await gateway.submit(withPhoto());
+      expect(photos.uploads, 1);
+      expect(storage.photo.uploads, 0);
+      expect(accepted.photoDeliveryStatus, 'uploaded');
+      expect(
+        accepted.photoUrl,
+        'https://photos.example/reports/test-1/photo/example.jpg',
+      );
+    },
+  );
+
+  test(
+    'owner can deliver a device-only photo without resetting resolution',
+    () async {
+      final old = withPhoto().copyWith(
+        syncStatus: SyncStatus.synced,
+        reportStatus: ReportStatus.resolved,
+        reporterId: 'test-reporter',
+        photoDeliveryStatus: 'deviceOnly',
+        responseNotes: 'Already resolved',
+      );
+      firestore.records[old.id] = old.toMap(includePhotoBytes: false);
+      final gateway = FirebaseConflictReportRemote(
+        firestore: firestore,
+        session: TestSession(),
+        photoRemote: TestPhotoRemote(),
+      );
+      final accepted = await gateway.submit(old);
+      expect(accepted.photoDeliveryStatus, 'uploaded');
+      expect(accepted.reportStatus, ReportStatus.resolved);
+      expect(accepted.responseNotes, 'Already resolved');
+      expect(firestore.records[old.id]!['reportStatus'], 'resolved');
+      expect(firestore.records[old.id]!['photoUrl'], accepted.photoUrl);
+    },
+  );
+
   test('upload failure cannot create a server report', () async {
     storage.photo.fail = true;
     await expectLater(remote.submit(withPhoto()), throwsException);

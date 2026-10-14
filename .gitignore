@@ -38,3 +38,7 @@ functions/node_modules/
 .kiro/
 .references/
 .specs/
+# Private photo Worker local state and development secrets
+**/.wrangler/
+services/conflict-photos/.dev.vars*
+services/conflict-photos/node_modules/

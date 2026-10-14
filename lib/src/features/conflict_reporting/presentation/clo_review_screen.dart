@@ -4,6 +4,7 @@ import '../domain/conflict_report.dart';
 import '../application/conflict_report_repository.dart';
 import 'conflict_theme.dart';
 import 'conflict_repository_view.dart';
+import 'conflict_report_photo.dart';
 
 class CloReviewScreen extends StatefulWidget {
   const CloReviewScreen({
@@ -52,29 +53,49 @@ class _CloReviewScreenState extends State<CloReviewScreen> {
       final report = widget.repository.current(widget.report);
       final busy = widget.repository.isBusy(report);
       return Scaffold(
-        appBar: AppBar(title: const Text('Review Report')),
+        appBar: AppBar(
+          title: const Text(
+            'Review Report',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Text(
               report.referenceNumber,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            Chip(
-              avatar: Icon(
-                Icons.circle,
-                size: 12,
-                color: context.reportStatusColor(report.reportStatus),
-              ),
-              label: Text(report.reportStatus.label),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ConflictStatusBadge(
+                  label: report.reportStatus.label,
+                  color: context.reportStatusColor(report.reportStatus),
+                  icon: Icons.assignment_outlined,
+                ),
+                ConflictStatusBadge(
+                  label: report.syncStatus.label,
+                  color: context.syncStatusColor(report.syncStatus),
+                  icon: Icons.cloud_done_outlined,
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            Text('${report.wildlifeType.label} • ${report.conflictType.label}'),
+            Text(
+              '${report.wildlifeType.label} • ${report.conflictType.label}',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             Text(report.description),
             const SizedBox(height: 8),
             Text('Location: ${report.locationDescription}'),
+            const SizedBox(height: 16),
+            ConflictReportPhoto(report: report),
             const SizedBox(height: 24),
             if (report.reportStatus == ReportStatus.submitted)
               FilledButton(
@@ -86,6 +107,7 @@ class _CloReviewScreenState extends State<CloReviewScreen> {
                       ),
                 child: const Text('Mark Under Review'),
               ),
+            const SizedBox(height: 16),
             TextField(
               controller: notes,
               maxLines: 4,

@@ -43,7 +43,11 @@ void main() {
   }.entries) {
     testWidgets('home opens ${entry.value}', (tester) async {
       await pump(tester, ConflictReportingHome(repository: repository));
-      await tester.ensureVisible(find.text(entry.key));
+      await tester.scrollUntilVisible(
+        find.text(entry.key),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(entry.key));
       await tester.pumpAndSettle();

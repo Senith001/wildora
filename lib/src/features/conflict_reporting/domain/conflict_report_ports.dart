@@ -20,3 +20,17 @@ abstract interface class ConflictReportRemote {
   Future<void> review(ConflictReport report);
   Future<void> resolve(ConflictReport report, String notes);
 }
+
+/// Delivers an attachment and returns its server reference.
+abstract interface class ConflictPhotoUploader {
+  Future<String> upload(ConflictReport report);
+}
+
+/// Reads images from addresses supported by the provider.
+abstract interface class ConflictPhotoDownloader {
+  bool canDownload(String url);
+  Future<List<int>> download(String url);
+}
+
+abstract interface class ConflictPhotoRemote
+    implements ConflictPhotoUploader, ConflictPhotoDownloader {}

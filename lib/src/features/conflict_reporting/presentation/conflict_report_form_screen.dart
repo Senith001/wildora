@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../domain/conflict_report.dart';
@@ -9,6 +10,8 @@ import '../application/conflict_report_repository.dart';
 import '../application/incident_location_service.dart';
 import '../application/incident_photo_service.dart';
 import 'manual_location_dialog.dart';
+import 'incident_location_map.dart';
+import '../application/conflict_photo_settings.dart';
 
 enum _PhotoChoice { camera, gallery }
 
@@ -18,10 +21,12 @@ class ConflictReportFormScreen extends StatefulWidget {
     required this.repository,
     this.locationService,
     this.photoService,
+    this.mapTileProvider,
   });
   final ConflictReportRepository repository;
   final IncidentLocationService? locationService;
   final IncidentPhotoService? photoService;
+  final TileProvider? mapTileProvider;
 
   @override
   State<ConflictReportFormScreen> createState() =>
@@ -61,6 +66,7 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
             : location.replaceFirst(RegExp(r' \(manual\)$'), ''),
         latitude: latitude,
         longitude: longitude,
+        tileProvider: widget.mapTileProvider,
       ),
     );
     if (!mounted || result == null) return;
@@ -202,8 +208,6 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-        foregroundColor: Theme.of(context).colorScheme.primary,
         leading: const BackButton(),
         title: const Text(
           'Report Conflict',
@@ -217,8 +221,19 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _departmentBanner(context),
-              const SizedBox(height: 20),
+              Text(
+                'Tell us what happened',
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Add the incident details and location. A photo is optional.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
               _sectionLabel(context, 'CONFLICT TYPE'),
               DropdownButtonFormField<ConflictType>(
                 initialValue: conflict,
@@ -228,8 +243,8 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
                 decoration: InputDecoration(
                   hintText: 'Select conflict type',
                   prefixIcon: Icon(
-                    Icons.error_outline,
-                    color: Theme.of(context).colorScheme.error,
+                    Icons.campaign_outlined,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 items: ConflictType.values
@@ -250,6 +265,7 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
                 validator: (value) =>
                     value == null ? 'Select a wildlife type' : null,
                 decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.pets_outlined),
                   hintText: 'Select wildlife type',
                 ),
                 items: WildlifeType.values
@@ -281,6 +297,13 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
                             : location,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
+                      subtitle: location.isEmpty
+                          ? const Text('Use GPS or choose a point on the map.')
+                          : Text(
+                              location.endsWith('(manual)')
+                                  ? 'Manually selected • confirm the incident position'
+                                  : 'GPS location • confirm the incident position',
+                            ),
                       trailing: TextButton(
                         onPressed: submitting || locating
                             ? null
@@ -292,6 +315,7 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
                       _LocationPreview(
                         latitude: latitude!,
                         longitude: longitude!,
+                        tileProvider: widget.mapTileProvider,
                       )
                     else
                       const Padding(
@@ -321,84 +345,68 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
                 ),
               const SizedBox(height: 18),
               _sectionLabel(context, 'DESCRIPTION'),
-              Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
-                  child: TextFormField(
-                    controller: description,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Describe the incident'
-                        : null,
-                    maxLines: 4,
-                    maxLength: 500,
-                    decoration: const InputDecoration(
-                      hintText: 'Describe what happened and when...',
-                      border: InputBorder.none,
-                    ),
-                  ),
+              TextFormField(
+                controller: description,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Describe the incident'
+                    : null,
+                maxLines: 4,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  hintText: 'Describe what happened and when...',
                 ),
               ),
               const SizedBox(height: 18),
               _sectionLabel(context, 'PHOTO (OPTIONAL)'),
-              const Text(
-                'Photos are saved on this device. Cloud photo delivery is not enabled on the current free-plan setup.',
+              Text(
+                ConflictPhotoSettings.enabled
+                    ? 'Photos are saved on this device and securely uploaded when the report is sent. Only the reporter and authorized CLOs can view them.'
+                    : 'Photos are saved on this device. Cloud photo delivery is not enabled on the current free-plan setup.',
               ),
               const SizedBox(height: 8),
-              Card(
-                margin: EdgeInsets.zero,
-                child: InkWell(
-                  onTap: submitting || pickingPhoto
-                      ? null
-                      : hasPhoto
-                      ? () => setState(() {
-                          photo = null;
-                        })
-                      : _pickPhoto,
+              if (hasPhoto) ...[
+                ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    height: 74,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                        style: BorderStyle.solid,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            hasPhoto ? Icons.delete_outline : Icons.add_a_photo,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            hasPhoto ? 'Remove Photo' : '+ Add Photo',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                  child: Image.memory(
+                    photo!.bytes,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    semanticLabel: 'Selected incident photo',
+                    errorBuilder: (context, error, stack) => const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text(
+                        'Preview unavailable. Change or remove this photo.',
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (hasPhoto)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.memory(
-                      photo!.bytes,
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: submitting || pickingPhoto ? null : _pickPhoto,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Change Photo'),
                     ),
+                    TextButton.icon(
+                      onPressed: submitting || pickingPhoto
+                          ? null
+                          : () => setState(() => photo = null),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Remove Photo'),
+                    ),
+                  ],
+                ),
+              ] else
+                OutlinedButton.icon(
+                  onPressed: submitting || pickingPhoto ? null : _pickPhoto,
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: Text(
+                    pickingPhoto ? 'Opening photos...' : '+ Add Photo',
                   ),
                 ),
               const SizedBox(height: 24),
@@ -429,96 +437,38 @@ class _ConflictReportFormScreenState extends State<ConflictReportFormScreen> {
       text,
       style: TextStyle(
         color: Theme.of(context).colorScheme.primary,
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
         letterSpacing: .35,
       ),
-    ),
-  );
-
-  Widget _departmentBanner(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    color: Theme.of(context).colorScheme.primaryContainer,
-    child: ListTile(
-      leading: Icon(
-        Icons.shield_outlined,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-      title: Text(
-        'DEPARTMENT OF WILDLIFE CONSERVATION',
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      subtitle: const Text('Sri Lanka • Smart Monitoring Network'),
     ),
   );
 }
 
 class _LocationPreview extends StatelessWidget {
-  const _LocationPreview({required this.latitude, required this.longitude});
+  const _LocationPreview({
+    required this.latitude,
+    required this.longitude,
+    this.tileProvider,
+  });
   final double latitude;
   final double longitude;
+  final TileProvider? tileProvider;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 116,
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        CustomPaint(
-          painter: _MapPreviewPainter(
-            lineColor: Theme.of(context).colorScheme.primaryContainer,
-          ),
+  Widget build(BuildContext context) => Column(
+    children: [
+      IncidentLocationMap(
+        latitude: latitude,
+        longitude: longitude,
+        tileProvider: tileProvider,
+      ),
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          '${latitude.toStringAsFixed(3)}, ${longitude.toStringAsFixed(3)}',
         ),
-        Center(
-          child: Icon(
-            Icons.location_pin,
-            size: 34,
-            color: Theme.of(context).colorScheme.error,
-          ),
-        ),
-        Positioned(
-          right: 12,
-          bottom: 8,
-          child: Text(
-            '${latitude.toStringAsFixed(3)}, ${longitude.toStringAsFixed(3)}',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              backgroundColor: Theme.of(context).colorScheme.surface
-                  .withValues(alpha: .8),
-            ),
-          ),
-        ),
-      ],
-    ),
+      ),
+    ],
   );
-}
-
-class _MapPreviewPainter extends CustomPainter {
-  const _MapPreviewPainter({required this.lineColor});
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final background = Paint()..color = const Color(0xFF7C956B);
-    canvas.drawRect(Offset.zero & size, background);
-    final contour = Paint()
-      ..color = lineColor.withValues(alpha: .7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    for (var offset = -size.height; offset < size.width; offset += 38) {
-      final path = Path()
-        ..moveTo(offset, size.height)
-        ..quadraticBezierTo(offset + 42, size.height * .45, offset + 90, 0);
-      canvas.drawPath(path, contour);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapPreviewPainter oldDelegate) => false;
 }

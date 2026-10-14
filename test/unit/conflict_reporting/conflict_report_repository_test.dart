@@ -150,6 +150,49 @@ void main() {
     expect(repository.isBusy(report), isFalse);
   });
 
+  test(
+    'photo-only retry preserves accepted report when delivery fails',
+    () async {
+      final old = reportFixture(
+        sync: SyncStatus.synced,
+        status: ReportStatus.submitted,
+      ).copyWith(photoDeliveryStatus: 'deviceOnly');
+      await store.save(old);
+      await repository.initialize();
+      remote.failSubmit = true;
+      expect(await repository.sync(old, retryPhoto: true), isFalse);
+      expect(repository.current(old).syncStatus, SyncStatus.synced);
+      expect(repository.current(old).reportStatus, ReportStatus.submitted);
+      expect(repository.pendingCount, 0);
+      expect(repository.errorMessage, contains('still submitted'));
+    },
+  );
+
+  test(
+    'explicit photo retry updates media without losing response workflow',
+    () async {
+      final old =
+          reportFixture(
+            sync: SyncStatus.synced,
+            status: ReportStatus.resolved,
+          ).copyWith(
+            photoDeliveryStatus: 'deviceOnly',
+            responseNotes: 'Resolved already',
+          );
+      await store.save(old);
+      await repository.initialize();
+      remote.acknowledgement = old.copyWith(
+        photoDeliveryStatus: 'uploaded',
+        photoUrl: 'https://photos.example/image.jpg',
+      );
+      expect(await repository.sync(old, retryPhoto: true), isTrue);
+      expect(repository.current(old).photoDeliveryStatus, 'uploaded');
+      expect(repository.current(old).reportStatus, ReportStatus.resolved);
+      expect(repository.current(old).responseNotes, 'Resolved already');
+      expect(repository.reports.length, 1);
+    },
+  );
+
   test('timeout remains retryable without claiming server receipt', () async {
     repository.dispose();
     repository = ConflictReportRepository(

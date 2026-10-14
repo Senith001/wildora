@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../domain/conflict_report_ports.dart';
 import '../domain/conflict_report.dart';
+import 'conflict_report_workflow.dart';
 
 /// Coordinates the durable outbox, server acknowledgement and CLO workflow.
 /// All I/O is injected; UI code only invokes use cases and reads snapshots.
@@ -23,6 +24,7 @@ class ConflictReportRepository extends ChangeNotifier {
   final DateTime Function() _clock;
   final String Function() _idGenerator;
   final Duration syncTimeout;
+  late final _workflow = ConflictReportWorkflow(_clock);
   final Map<String, ConflictReport> _local = {};
   final Map<String, ConflictReport> _dashboard = {};
   final Set<String> _busy = {};
@@ -204,15 +206,18 @@ class ConflictReportRepository extends ChangeNotifier {
 
   /// Concurrent taps cannot issue duplicate requests. Stable IDs also make
   /// retries after a timeout safe when the server accepted the first attempt.
-  Future<bool> sync(ConflictReport report) async {
+  Future<bool> sync(ConflictReport report, {bool retryPhoto = false}) async {
     report = current(report);
-    if (report.syncStatus == SyncStatus.synced) return true;
+    final wasSynced = report.syncStatus == SyncStatus.synced;
+    if (wasSynced && !retryPhoto) return true;
     if (!_local.containsKey(report.id)) {
       throw ArgumentError('Save the report locally before sending it.');
     }
     if (!_busy.add(report.id)) return false;
     _errorMessage = null;
-    _local[report.id] = report.copyWith(syncStatus: SyncStatus.syncing);
+    _local[report.id] = wasSynced
+        ? report
+        : report.copyWith(syncStatus: SyncStatus.syncing);
     _notify();
     try {
       final acknowledgement = await _remote.submit(report).timeout(syncTimeout);
@@ -233,16 +238,20 @@ class ConflictReportRepository extends ChangeNotifier {
       _local[report.id] = accepted;
       return true;
     } on Object {
-      final failed = report.copyWith(syncStatus: SyncStatus.failed);
+      final failed = wasSynced
+          ? report
+          : report.copyWith(syncStatus: SyncStatus.failed);
       _local[report.id] = failed;
-      _errorMessage =
-          'Sending failed. The report is saved; retry when connected.';
+      _errorMessage = wasSynced
+          ? 'Photo delivery failed. Your report is still submitted; retry uploading the photo.'
+          : 'Sending failed. The report is saved; retry when connected.';
       // The original pending snapshot is already durable even if this fails.
       try {
         await _save(failed);
       } on Object {
-        _errorMessage =
-            'Sending failed. The original pending report is retained.';
+        _errorMessage = wasSynced
+            ? 'Photo delivery failed. Your previously accepted report is retained.'
+            : 'Sending failed. The original pending report is retained.';
       }
       return false;
     } finally {
@@ -262,39 +271,14 @@ class ConflictReportRepository extends ChangeNotifier {
 
   Future<void> markUnderReview(ConflictReport report) async {
     report = current(report);
-    if (report.reportStatus != ReportStatus.submitted ||
-        report.syncStatus != SyncStatus.synced) {
-      throw StateError('Only submitted reports can be reviewed.');
-    }
-    await _change(
-      report,
-      () => _remote.review(report),
-      report.copyWith(
-        reportStatus: ReportStatus.underReview,
-        reviewedAt: _clock(),
-        updatedAt: _clock(),
-      ),
-    );
+    final updated = _workflow.underReview(report);
+    await _change(report, () => _remote.review(report), updated);
   }
 
   Future<void> resolve(ConflictReport report, String notes) async {
     report = current(report);
-    if (notes.trim().isEmpty) {
-      throw ArgumentError('Enter response notes first.');
-    }
-    if (report.reportStatus != ReportStatus.underReview) {
-      throw StateError('Mark the report under review before resolving it.');
-    }
-    await _change(
-      report,
-      () => _remote.resolve(report, notes.trim()),
-      report.copyWith(
-        reportStatus: ReportStatus.resolved,
-        responseNotes: notes.trim(),
-        resolvedAt: _clock(),
-        updatedAt: _clock(),
-      ),
-    );
+    final updated = _workflow.resolved(report, notes);
+    await _change(report, () => _remote.resolve(report, notes.trim()), updated);
   }
 
   Future<void> _change(

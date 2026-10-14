@@ -121,6 +121,10 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.get('role', '') == 'clo';
     }
     match /conflictReports/{reportId} {
+      // Idempotent submission checks an unused ID before creating the report.
+      // Existing reports still require the ownership/CLO read policy below.
+      allow get: if request.auth != null &&
+        !exists(/databases/$(database)/documents/conflictReports/$(reportId));
       allow read: if request.auth != null && ((conflictClo() &&
         (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false))) ||
         resource.data.get('isDemo', false) == true ||
@@ -138,6 +142,14 @@ service cloud.firestore {
         request.resource.data.locationDescription is string && request.resource.data.locationDescription.size() > 0 &&
         request.resource.data.wildlifeType in ['elephant', 'leopard', 'wildBoar', 'other'] &&
         request.resource.data.conflictType in ['cropRaiding', 'animalSighting', 'propertyDamage', 'threatToPeople', 'other'];
+      // The reporter can deliver a previously device-only photo; officer
+      // workflow fields remain protected by the separate CLO policy below.
+      allow update: if request.auth != null && resource.data.reporterId == request.auth.uid &&
+        resource.data.get('photoDeliveryStatus', 'none') == 'deviceOnly' &&
+        resource.data.get('photoUrl', null) == null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoUrl', 'photoDeliveryStatus']) &&
+        request.resource.data.photoDeliveryStatus == 'uploaded' &&
+        request.resource.data.photoUrl is string && request.resource.data.photoUrl.matches('https://wildora-conflict-photos[.]wildora[.]workers[.]dev/reports/' + reportId + '/photo/[a-f0-9]{64}[.](jpg|jpeg|png|webp)');
       allow update: if conflictClo() &&
         (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false)) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportStatus', 'reviewedBy', 'reviewedAt', 'resolvedAt', 'responseNotes', 'updatedAt']) &&
