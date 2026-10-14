@@ -10,7 +10,10 @@ import '../features/manage_patrols/application/patrol_controller.dart';
 import '../features/manage_patrols/data/patrol_local_store.dart';
 import '../features/manage_patrols/data/patrol_location_service.dart';
 import '../features/manage_patrols/data/patrol_sync_service.dart';
+import '../features/manage_patrols/presentation/assign_patrol_screen.dart';
 import '../features/manage_patrols/presentation/assigned_patrol_screen.dart';
+import '../features/manage_patrols/presentation/manager_patrol_review_screen.dart';
+import '../features/manage_patrols/presentation/ranger_patrol_history_screen.dart';
 import 'theme/theme_controller.dart';
 import '../data/repositories/animal_repository.dart';
 import '../data/repositories/alert_repository.dart';
@@ -18,6 +21,10 @@ import '../data/repositories/high_risk_zone_repository.dart';
 import '../data/repositories/officer_repository.dart';
 import '../data/repositories/duty_roster_repository.dart';
 import '../data/repositories/alert_recipient_repository.dart';
+import '../features/conflict_reporting/conflict_reporting.dart';
+import '../features/conflict_reporting/presentation/clo_access_screen.dart';
+import '../features/conflict_reporting/data/firebase_conflict_report_remote.dart';
+import '../features/conflict_reporting/data/local_store_factory.dart';
 
 /// Route table for Wildora app navigation with dependency injection.
 ///
@@ -28,16 +35,37 @@ class AppRouter {
   static const String monitoring = '/monitoring';
   static const String alert = '/alert';
   static const String patrol = '/patrol';
+  static const String patrolAssign = '/patrol/assign';
+  static const String patrolManagerReview = '/patrol/manager-review';
+  static const String patrolHistory = '/patrol/history';
   static const String wildlifeIncident = '/wildlife-incident';
 
   final AnimalMonitoringController _monitoringController;
   final ThemeController _themeController;
+  final ConflictReportRepository conflictRepository;
+  PatrolController? _patrolController;
 
   AppRouter({
-    required AnimalMonitoringController monitoringController,
-    required ThemeController themeController,
-  }) : _monitoringController = monitoringController,
-       _themeController = themeController;
+    required this._monitoringController,
+    required this._themeController,
+    ConflictReportRepository? conflictRepository,
+    this._patrolController,
+  }) : conflictRepository = conflictRepository ?? ConflictReportRepository(
+         store: createConflictReportStore(),
+         remote: FirebaseConflictReportRemote(uploadPhotos: false),
+       );
+
+  PatrolController _getOrCreatePatrolController() {
+    if (_patrolController != null) return _patrolController!;
+    final localStore = HivePatrolLocalStore();
+    final locationService = PatrolLocationService();
+    final syncService = PatrolSyncService(localStore: localStore);
+    return _patrolController = PatrolController(
+      localStore: localStore,
+      locationService: locationService,
+      syncService: syncService,
+    );
+  }
 
   /// Generate route for named routing with dependency injection.
   ///
@@ -83,6 +111,7 @@ class AppRouter {
             ),
             settings: settings,
           );
+
         }
 
         return MaterialPageRoute(
@@ -95,17 +124,80 @@ class AppRouter {
 
       case patrol:
         return MaterialPageRoute(
-          builder: (_) {
-            final localStore = HivePatrolLocalStore();
-            final locationService = PatrolLocationService();
-            final syncService = PatrolSyncService(localStore: localStore);
-            final patrolController = PatrolController(
-              localStore: localStore,
-              locationService: locationService,
-              syncService: syncService,
-            );
-            return AssignedPatrolScreen(controller: patrolController);
-          },
+          builder: (_) => AssignedPatrolScreen(
+            controller: _getOrCreatePatrolController(),
+          ),
+          settings: settings,
+        );
+      case patrolAssign:
+        return MaterialPageRoute(
+          builder: (_) => AssignPatrolScreen(
+            controller: _getOrCreatePatrolController(),
+          ),
+          settings: settings,
+        );
+      case patrolManagerReview:
+        return MaterialPageRoute(
+          builder: (_) => ManagerPatrolReviewScreen(
+            controller: _getOrCreatePatrolController(),
+          ),
+          settings: settings,
+        );
+      case patrolHistory:
+        return MaterialPageRoute(
+          builder: (_) => RangerPatrolHistoryScreen(
+            controller: _getOrCreatePatrolController(),
+          ),
+          settings: settings,
+        );
+      case '/conflict':
+        return MaterialPageRoute(
+          builder: (_) => ConflictReportingHome(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/report':
+        return MaterialPageRoute(
+          builder: (_) => ConflictReportFormScreen(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/reports':
+        return MaterialPageRoute(
+          builder: (_) => MyConflictReportsScreen(repository: conflictRepository),
+          settings: settings,
+        );
+      case '/conflict/confirmation':
+        return MaterialPageRoute(
+          builder: (_) => ConflictConfirmationScreen(
+            report: settings.arguments! as ConflictReport,
+            repository: conflictRepository,
+          ),
+          settings: settings,
+        );
+      case '/conflict/details':
+        return MaterialPageRoute(
+          builder: (_) => ConflictDetailsScreen(
+            report: settings.arguments! as ConflictReport,
+            repository: conflictRepository,
+          ),
+          settings: settings,
+        );
+      case '/conflict/clo':
+        return MaterialPageRoute(
+          builder: (_) => CloAccessScreen(
+            repository: conflictRepository,
+            child: CloDashboardScreen(repository: conflictRepository),
+          ),
+          settings: settings,
+        );
+      case '/conflict/clo/review':
+        return MaterialPageRoute(
+          builder: (_) => CloAccessScreen(
+            repository: conflictRepository,
+            child: CloReviewScreen(
+              report: settings.arguments! as ConflictReport,
+              repository: conflictRepository,
+            ),
+          ),
           settings: settings,
         );
 
@@ -154,6 +246,10 @@ class AppRouter {
     return AppRouter(
       monitoringController: monitoringController,
       themeController: themeController,
+      conflictRepository: ConflictReportRepository(
+         store: createConflictReportStore(),
+         remote: FirebaseConflictReportRemote(uploadPhotos: false),
+       ),
     );
   }
 }

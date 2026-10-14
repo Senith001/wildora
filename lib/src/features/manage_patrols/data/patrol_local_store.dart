@@ -6,9 +6,18 @@ import 'patrol_models.dart';
 abstract class PatrolLocalStore {
   Future<void> initialize();
   PatrolSession? readActiveSession();
+  PatrolSession? readSessionById(String sessionId);
   List<PatrolSession> readAllSessions();
   Future<void> saveSession(PatrolSession session);
   Future<void> deleteSession(String sessionId);
+
+  // Assignment caching for offline resilience
+  List<PatrolAssignment> readCachedAssignments({String? rangerId});
+  Future<void> saveCachedAssignments(List<PatrolAssignment> assignments);
+  Future<void> saveCachedAssignment(PatrolAssignment assignment);
+
+  // Session history
+  List<PatrolSession> readSessionHistory({String? rangerId});
 }
 
 /// Hive-backed implementation for durable local patrol storage.
@@ -45,6 +54,13 @@ class HivePatrolLocalStore implements PatrolLocalStore {
   }
 
   @override
+  PatrolSession? readSessionById(String sessionId) {
+    final map = _box.get('patrol:$sessionId');
+    if (map == null) return null;
+    return PatrolSession.fromMap(map as Map);
+  }
+
+  @override
   List<PatrolSession> readAllSessions() => _box.keys
       .where((key) => key.toString().startsWith('patrol:'))
       .map((key) => PatrolSession.fromMap(_box.get(key) as Map))
@@ -76,13 +92,54 @@ class HivePatrolLocalStore implements PatrolLocalStore {
     }
     await _box.flush();
   }
+
+  @override
+  List<PatrolAssignment> readCachedAssignments({String? rangerId}) {
+    final all = _box.keys
+        .where((key) => key.toString().startsWith('assignment:'))
+        .map((key) => PatrolAssignment.fromMap(_box.get(key) as Map))
+        .toList();
+    if (rangerId != null && rangerId.isNotEmpty) {
+      return all.where((a) => a.assignedRangerId == rangerId).toList();
+    }
+    return all;
+  }
+
+  @override
+  Future<void> saveCachedAssignments(List<PatrolAssignment> assignments) async {
+    for (final a in assignments) {
+      await _box.put('assignment:${a.id}', a.toMap());
+    }
+    await _box.flush();
+  }
+
+  @override
+  Future<void> saveCachedAssignment(PatrolAssignment assignment) async {
+    await _box.put('assignment:${assignment.id}', assignment.toMap());
+    await _box.flush();
+  }
+
+  @override
+  List<PatrolSession> readSessionHistory({String? rangerId}) {
+    final all = readAllSessions()
+        .where((s) => s.lifecycleStatus == PatrolLifecycleStatus.completed)
+        .toList();
+    if (rangerId != null && rangerId.isNotEmpty) {
+      return all.where((s) => s.rangerId == rangerId).toList();
+    }
+    return all;
+  }
 }
 
 /// In-memory implementation for testing.
 class InMemoryPatrolLocalStore implements PatrolLocalStore {
   final Map<String, PatrolSession> _sessions = {};
+  final Map<String, PatrolAssignment> _assignments = {};
   String? _activeSessionId;
   bool shouldFail = false;
+
+  /// Test helper to set the active session ID directly.
+  void setActiveSessionId(String? id) => _activeSessionId = id;
 
   @override
   Future<void> initialize() async {}
@@ -92,6 +149,9 @@ class InMemoryPatrolLocalStore implements PatrolLocalStore {
     if (_activeSessionId == null) return null;
     return _sessions[_activeSessionId];
   }
+
+  @override
+  PatrolSession? readSessionById(String sessionId) => _sessions[sessionId];
 
   @override
   List<PatrolSession> readAllSessions() => _sessions.values.toList();
@@ -116,5 +176,38 @@ class InMemoryPatrolLocalStore implements PatrolLocalStore {
     if (_activeSessionId == sessionId) {
       _activeSessionId = null;
     }
+  }
+
+  @override
+  List<PatrolAssignment> readCachedAssignments({String? rangerId}) {
+    if (rangerId != null && rangerId.isNotEmpty) {
+      return _assignments.values
+          .where((a) => a.assignedRangerId == rangerId)
+          .toList();
+    }
+    return _assignments.values.toList();
+  }
+
+  @override
+  Future<void> saveCachedAssignments(List<PatrolAssignment> assignments) async {
+    for (final a in assignments) {
+      _assignments[a.id] = a;
+    }
+  }
+
+  @override
+  Future<void> saveCachedAssignment(PatrolAssignment assignment) async {
+    _assignments[assignment.id] = assignment;
+  }
+
+  @override
+  List<PatrolSession> readSessionHistory({String? rangerId}) {
+    final completed = _sessions.values
+        .where((s) => s.lifecycleStatus == PatrolLifecycleStatus.completed)
+        .toList();
+    if (rangerId != null && rangerId.isNotEmpty) {
+      return completed.where((s) => s.rangerId == rangerId).toList();
+    }
+    return completed;
   }
 }

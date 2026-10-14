@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../application/patrol_controller.dart';
 import '../data/patrol_models.dart';
 import 'add_waypoint_screen.dart';
 import 'patrol_completed_screen.dart';
+import 'patrol_map_view.dart';
+import 'patrol_theme.dart';
 import 'patrol_widgets.dart';
 
 /// Screen 2: Patrol In Progress
 ///
-/// Active patrol monitoring with GPS tracking, map visualization,
-/// elapsed duration, distance, waypoint/deviation actions, and
-/// completion flow.
+/// Tactical operational interface featuring live OpenStreetMap path tracking,
+/// elapsed duration and recorded GPS distance telemetry, manual and automatic
+/// GPS fix capture, waypoint logging, deviation recording, and confirmed completion.
 class PatrolInProgressScreen extends StatefulWidget {
   const PatrolInProgressScreen({super.key, required this.controller});
 
@@ -24,8 +27,11 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
   @override
   void initState() {
     super.initState();
-    // Start GPS tracking when entering this screen
-    widget.controller.startGpsTracking();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.controller.startGpsTracking();
+      }
+    });
   }
 
   Future<void> _addWaypoint() async {
@@ -42,30 +48,62 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
   }
 
   Future<void> _recordDeviation() async {
-    final session = widget.controller.currentSession;
-    if (session?.lifecycleStatus != PatrolLifecycleStatus.active) return;
+    if (widget.controller.currentSession?.lifecycleStatus !=
+        PatrolLifecycleStatus.active) {
+      return;
+    }
 
     final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Record Route Deviation'),
+        backgroundColor: PatrolTheme.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: PatrolTheme.radiusMd),
+        title: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: PatrolTheme.amberSurface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.alt_route,
+                  color: PatrolTheme.amberDark, size: 20),
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Log Route Deviation',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: PatrolTheme.charcoal,
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Record that you are deviating from the assigned route. '
-              'Your current GPS position will be used if available.',
+              'Record an operational departure from the assigned route trajectory without altering the original plan.',
+              style: TextStyle(fontSize: 13, color: PatrolTheme.charcoalMuted),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextField(
               controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-                hintText: 'e.g. Trail blocked by fallen tree',
-                border: OutlineInputBorder(),
-              ),
               maxLines: 2,
+              decoration: InputDecoration(
+                labelText: 'Operational Reason (Optional)',
+                hintText: 'e.g. Washout flooding, elephant herd crossing',
+                labelStyle: const TextStyle(fontSize: 13),
+                filled: true,
+                fillColor: PatrolTheme.surfaceElevated,
+                border: OutlineInputBorder(
+                  borderRadius: PatrolTheme.radiusSm,
+                  borderSide: const BorderSide(color: PatrolTheme.borderLight),
+                ),
+              ),
             ),
           ],
         ),
@@ -74,22 +112,28 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Record'),
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Confirm Deviation'),
+            style: FilledButton.styleFrom(
+              backgroundColor: PatrolTheme.amberDark,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
     );
 
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true) return;
 
-    // Try to get current position for the deviation
-    double lat = 0;
-    double lng = 0;
+    final session = widget.controller.currentSession;
+    double lat;
+    double lng;
     final lastTrack = session!.trackPoints.isNotEmpty
         ? session.trackPoints.last
         : null;
+
     if (lastTrack != null) {
       lat = lastTrack.latitude;
       lng = lastTrack.longitude;
@@ -103,8 +147,8 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'GPS unavailable. Deviation recorded without coordinates.'),
+              content: Text('GPS fix unavailable. Deviation could not be mapped.'),
+              backgroundColor: PatrolTheme.amberDark,
             ),
           );
         }
@@ -123,8 +167,8 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Route deviation recorded.'),
-          backgroundColor: Color(0xFF2E7D32),
+          content: Text('Route deviation recorded with spatial coordinates.'),
+          backgroundColor: PatrolTheme.forestPrimary,
         ),
       );
     }
@@ -134,10 +178,20 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Complete Patrol?'),
+        backgroundColor: PatrolTheme.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: PatrolTheme.radiusMd),
+        title: const Text(
+          'Complete Patrol?',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: PatrolTheme.charcoal,
+          ),
+        ),
         content: const Text(
           'Are you sure you want to complete this patrol? '
-          'GPS tracking will stop and no more waypoints can be added.',
+          'GPS tracking will stop and your debrief summary will be saved to local storage.',
+          style: TextStyle(color: PatrolTheme.charcoalMuted, fontSize: 14),
         ),
         actions: [
           TextButton(
@@ -147,7 +201,8 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.orange.shade700,
+              backgroundColor: PatrolTheme.amberDark,
+              foregroundColor: Colors.white,
             ),
             child: const Text('Complete Patrol'),
           ),
@@ -170,12 +225,7 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(widget.controller.error!),
-          backgroundColor: Colors.red.shade700,
-          action: SnackBarAction(
-            label: 'Retry',
-            textColor: Colors.white,
-            onPressed: _completePatrol,
-          ),
+          backgroundColor: PatrolTheme.error,
         ),
       );
     }
@@ -183,9 +233,6 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
@@ -197,28 +244,31 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
         }
 
         return Scaffold(
+          backgroundColor: PatrolTheme.background,
           appBar: AppBar(
             title: const Text('Patrol In Progress'),
+            backgroundColor: PatrolTheme.forestDeep,
+            foregroundColor: Colors.white,
+            elevation: 0,
             automaticallyImplyLeading: false,
             actions: [
-              // GPS indicator
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: GpsStatusBadge(
                   available: widget.controller.gpsAvailable,
                   lastFix: widget.controller.lastGpsFix,
+                  status: widget.controller.gpsSignalStatus,
+                  accuracy: widget.controller.gpsAccuracy,
                 ),
               ),
-              // Connectivity indicator
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.only(right: 6),
                 child: ConnectivityBadge(
                   isOnline: widget.controller.isOnline,
                 ),
               ),
-              // Sync status
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: 12),
                 child: SyncStatusIcon(
                   status: session.syncMetadata.syncStatus,
                   compact: true,
@@ -228,191 +278,247 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
           ),
           body: Column(
             children: [
-              // Status badge
+              // ─── Active Operational Status Strip ─────────────────────────
               Container(
                 width: double.infinity,
-                color: const Color(0xFF2E7D32),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: const Center(
-                  child: Text(
-                    '● ACTIVE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      letterSpacing: 1.2,
+                color: PatrolTheme.forestPrimary,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 7, horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4ADE80),
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'ACTIVE FIELD PATROL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '• ${session.routeName}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
+
+              // ─── Main Content Area ───────────────────────────────────────
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Map / Track visualization
-                      _buildMapCard(session, theme, colors),
+                  child: ResponsiveContentWrapper(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Interactive OpenStreetMap Track Card
+                        _buildMapCard(session),
 
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
-                      // Stats row
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              icon: Icons.timer,
-                              label: 'Elapsed',
-                              value: _formatDuration(session.actualDuration),
-                              color: colors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              icon: Icons.straighten,
-                              label: 'Distance',
-                              value:
-                                  '${session.recordedDistanceKm.toStringAsFixed(2)} km',
-                              color: colors.tertiary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        // Real-time telemetry metrics
+                        _buildTelemetryRow(session),
 
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
 
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              icon: Icons.location_on,
-                              label: 'GPS Points',
-                              value: '${session.trackPoints.length}',
-                              color: colors.secondary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              icon: Icons.flag,
-                              label: 'Waypoints',
-                              value: '${session.waypoints.length}',
-                              color: Colors.orange.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
+                        // Secondary metrics row (GPS points & waypoints)
+                        _buildSecondaryMetrics(session),
 
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
-                      // GPS unavailable warning
-                      if (!widget.controller.gpsAvailable)
-                        Card(
-                          color: Colors.orange.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Icon(Icons.gps_off,
-                                    color: Colors.orange.shade700),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'GPS Unavailable',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.orange.shade900,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Automatic tracking is paused. '
-                                        'You can still add waypoints manually.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.orange.shade800,
-                                        ),
-                                      ),
-                                    ],
+                        // GPS Unavailable warning banner if signal is dropped/denied
+                        if (!widget.controller.gpsAvailable ||
+                            widget.controller.gpsSignalStatus !=
+                                GpsSignalStatus.available)
+                          _buildGpsWarningBanner(),
+
+                        const SizedBox(height: 16),
+
+                        // Tactical Field Action Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: SizedBox(
+                                height: 52,
+                                child: FilledButton.icon(
+                                  onPressed: _addWaypoint,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: PatrolTheme.forestPrimary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: PatrolTheme.radiusMd,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
+                                  icon: const Icon(Icons.add_location_alt,
+                                      size: 20),
+                                  label: const Text('Add Waypoint'),
                                 ),
-                                IconButton(
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: SizedBox(
+                                height: 52,
+                                child: OutlinedButton.icon(
+                                  onPressed: _recordDeviation,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: PatrolTheme.charcoal,
+                                    side: const BorderSide(
+                                        color: PatrolTheme.borderLight,
+                                        width: 1.5),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: PatrolTheme.radiusMd,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.alt_route,
+                                      size: 18, color: PatrolTheme.amberDark),
+                                  label: const Text('Deviation'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Manual GPS Fix Trigger Button
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 44,
+                                child: OutlinedButton.icon(
                                   onPressed: () =>
                                       widget.controller.captureGpsFix(),
-                                  icon: const Icon(Icons.refresh),
-                                  tooltip: 'Retry GPS',
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: PatrolTheme.forestPrimary,
+                                    side: const BorderSide(
+                                      color: PatrolTheme.forestBorder,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: PatrolTheme.radiusSm,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.my_location, size: 16),
+                                  label: const Text('Record GPS Fix'),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                      const SizedBox(height: 16),
-
-                      // Action buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed: _addWaypoint,
-                                icon: const Icon(Icons.add_location_alt),
-                                label: const Text('Add Waypoint'),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: SizedBox(
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed: _recordDeviation,
-                                icon: const Icon(Icons.alt_route),
-                                label: const Text('Deviation'),
+                          ],
+                        ),
+
+                        // Logged Waypoints List during active patrol
+                        if (session.waypoints.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            decoration: PatrolTheme.cardDecoration(),
+                            clipBehavior: Clip.antiAlias,
+                            child: Theme(
+                              data: Theme.of(context)
+                                  .copyWith(dividerColor: Colors.transparent),
+                              child: ExpansionTile(
+                                tilePadding:
+                                    const EdgeInsets.symmetric(horizontal: 14),
+                                leading: const Icon(Icons.place_outlined,
+                                    size: 20, color: PatrolTheme.forestPrimary),
+                                title: Text(
+                                  'Logged Waypoints (${session.waypoints.length})',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: PatrolTheme.charcoal,
+                                  ),
+                                ),
+                                subtitle: const Text(
+                                  'Tap any waypoint to view details & sync state',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: PatrolTheme.charcoalMuted,
+                                  ),
+                                ),
+                                children: [
+                                  WaypointListPanel(
+                                    waypoints: session.waypoints,
+                                    isRanger: true,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ],
-                      ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // Complete Patrol button
-                      SizedBox(
-                        height: 56,
-                        child: FilledButton.icon(
-                          onPressed:
-                              widget.controller.isLoading ? null : _completePatrol,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.orange.shade700,
-                            foregroundColor: Colors.white,
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                        // Complete Patrol (Isolated with Distinct Amber Action)
+                        SizedBox(
+                          height: 54,
+                          child: FilledButton.icon(
+                            onPressed: widget.controller.isLoading
+                                ? null
+                                : _completePatrol,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: PatrolTheme.amberDark,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: PatrolTheme.radiusMd,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
+                              ),
                             ),
+                            icon: const Icon(Icons.check_circle_outline,
+                                size: 22),
+                            label: widget.controller.isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Complete Patrol'),
                           ),
-                          icon: const Icon(Icons.check_circle),
-                          label: widget.controller.isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text('Complete Patrol'),
                         ),
-                      ),
 
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -423,93 +529,186 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
     );
   }
 
-  Widget _buildMapCard(
-    PatrolSession session,
-    ThemeData theme,
-    ColorScheme colors,
-  ) {
-    return Card(
+  Widget _buildMapCard(PatrolSession session) {
+    LatLng? currentFix;
+    if (session.trackPoints.isNotEmpty) {
+      final last = session.trackPoints.last;
+      currentFix = LatLng(last.latitude, last.longitude);
+    }
+
+    return Container(
+      decoration: PatrolTheme.cardDecoration(),
       clipBehavior: Clip.antiAlias,
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colors.primaryContainer.withValues(alpha: 0.2),
-              colors.surfaceContainerLow,
-            ],
+      child: Column(
+        children: [
+          // Tactical Header Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            color: PatrolTheme.surfaceElevated,
+            child: Row(
+              children: [
+                const Icon(Icons.layers_outlined,
+                    size: 16, color: PatrolTheme.forestPrimary),
+                const SizedBox(width: 6),
+                const Text(
+                  'Live Tactical Map & GPS Track',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: PatrolTheme.charcoal,
+                  ),
+                ),
+                const Spacer(),
+                // Visual Legend
+                _buildLegendPill(const Color(0xFF2563EB), 'Planned'),
+                const SizedBox(width: 6),
+                _buildLegendPill(PatrolTheme.forestPrimary, 'Track'),
+                const SizedBox(width: 6),
+                _buildLegendPill(PatrolTheme.amberDark, 'Waypoint'),
+              ],
+            ),
+          ),
+
+          // Real OpenStreetMap Canvas
+          PatrolMapView(
+            trackPoints: session.trackPoints,
+            checkpoints: session.checkpoints,
+            waypoints: session.waypoints,
+            deviations: session.deviations,
+            currentPosition: currentFix,
+            accuracy: widget.controller.gpsAccuracy,
+            height: 250,
+            interactive: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendPill(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: PatrolTheme.charcoalMuted),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTelemetryRow(PatrolSession session) {
+    return Row(
+      children: [
+        Expanded(
+          child: _MetricCard(
+            icon: Icons.timer,
+            label: 'Elapsed Duration',
+            value: _formatDuration(session.actualDuration),
+            accentColor: PatrolTheme.forestPrimary,
           ),
         ),
-        child: Stack(
-          children: [
-            // Simple track visualization
-            if (session.trackPoints.isNotEmpty)
-              CustomPaint(
-                size: const Size(double.infinity, 200),
-                painter: _TrackPainter(
-                  trackPoints: session.trackPoints,
-                  waypoints: session.waypoints,
-                  primaryColor: colors.primary,
-                  waypointColor: Colors.orange.shade700,
-                ),
-              )
-            else
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.gps_fixed,
-                        size: 40,
-                        color: colors.primary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Waiting for GPS fixes…',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            // Route label
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 3,
-                      color: colors.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text('Track', style: theme.textTheme.labelSmall),
-                    const SizedBox(width: 12),
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade700,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text('Waypoint', style: theme.textTheme.labelSmall),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MetricCard(
+            icon: Icons.straighten,
+            label: 'Recorded Distance',
+            value: '${session.recordedDistanceKm.toStringAsFixed(2)} km',
+            accentColor: PatrolTheme.forestMedium,
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryMetrics(PatrolSession session) {
+    return Row(
+      children: [
+        Expanded(
+          child: _MetricCard(
+            icon: Icons.gps_fixed,
+            label: 'GPS Track Points',
+            value: '${session.trackPoints.length}',
+            accentColor: PatrolTheme.infoBlue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MetricCard(
+            icon: Icons.flag,
+            label: 'Logged Waypoints',
+            value: '${session.waypoints.length}',
+            accentColor: PatrolTheme.amberDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGpsWarningBanner() {
+    final status = widget.controller.gpsSignalStatus;
+    String title = 'GPS Signal Disrupted';
+    String message =
+        'Spatial tracking is temporarily paused. Manual coordinate input remains functional.';
+
+    if (status == GpsSignalStatus.denied ||
+        status == GpsSignalStatus.permanentlyDenied) {
+      title = 'Location Permission Denied';
+      message =
+          'Allow location permissions in browser site settings or phone settings to track live movements.';
+    } else if (status == GpsSignalStatus.servicesDisabled) {
+      title = 'Device Location Turned Off';
+      message = 'Please turn on Location / GPS in your device settings.';
+    } else if (status == GpsSignalStatus.stale) {
+      title = 'Stale GPS Position';
+      message =
+          'No recent satellite updates. Moving outdoors helps acquire faster fixes.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PatrolTheme.amberSurface,
+        borderRadius: PatrolTheme.radiusMd,
+        border: Border.all(color: PatrolTheme.amberBorder),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.gps_off, color: PatrolTheme.amberDark, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: PatrolTheme.amberDark,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  style: const TextStyle(
+                      fontSize: 11, color: PatrolTheme.charcoal),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => widget.controller.captureGpsFix(),
+            icon: const Icon(Icons.refresh, color: PatrolTheme.amberDark),
+            tooltip: 'Retry GPS Fix',
+          ),
+        ],
       ),
     );
   }
@@ -524,145 +723,57 @@ class _PatrolInProgressScreenState extends State<PatrolInProgressScreen> {
   }
 }
 
-// ─── Simple track painter ───────────────────────────────────────────
-
-class _TrackPainter extends CustomPainter {
-  _TrackPainter({
-    required this.trackPoints,
-    required this.waypoints,
-    required this.primaryColor,
-    required this.waypointColor,
-  });
-
-  final List<TrackPoint> trackPoints;
-  final List<Waypoint> waypoints;
-  final Color primaryColor;
-  final Color waypointColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (trackPoints.isEmpty) return;
-
-    // Calculate bounds
-    double minLat = trackPoints.first.latitude;
-    double maxLat = trackPoints.first.latitude;
-    double minLng = trackPoints.first.longitude;
-    double maxLng = trackPoints.first.longitude;
-
-    for (final p in trackPoints) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-    for (final w in waypoints) {
-      if (w.latitude < minLat) minLat = w.latitude;
-      if (w.latitude > maxLat) maxLat = w.latitude;
-      if (w.longitude < minLng) minLng = w.longitude;
-      if (w.longitude > maxLng) maxLng = w.longitude;
-    }
-
-    final latRange = (maxLat - minLat).clamp(0.0001, double.infinity);
-    final lngRange = (maxLng - minLng).clamp(0.0001, double.infinity);
-    const padding = 24.0;
-    final drawWidth = size.width - padding * 2;
-    final drawHeight = size.height - padding * 2;
-
-    Offset toCanvas(double lat, double lng) {
-      final x = padding + ((lng - minLng) / lngRange) * drawWidth;
-      final y = padding + ((maxLat - lat) / latRange) * drawHeight;
-      return Offset(x, y);
-    }
-
-    // Draw track line
-    final trackPaint = Paint()
-      ..color = primaryColor
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    final first = toCanvas(trackPoints.first.latitude, trackPoints.first.longitude);
-    path.moveTo(first.dx, first.dy);
-    for (int i = 1; i < trackPoints.length; i++) {
-      final p = toCanvas(trackPoints[i].latitude, trackPoints[i].longitude);
-      path.lineTo(p.dx, p.dy);
-    }
-    canvas.drawPath(path, trackPaint);
-
-    // Draw track points
-    final pointPaint = Paint()..color = primaryColor;
-    for (final p in trackPoints) {
-      canvas.drawCircle(toCanvas(p.latitude, p.longitude), 3, pointPaint);
-    }
-
-    // Draw waypoints
-    final wpPaint = Paint()..color = waypointColor;
-    for (final w in waypoints) {
-      canvas.drawCircle(toCanvas(w.latitude, w.longitude), 6, wpPaint);
-      canvas.drawCircle(
-        toCanvas(w.latitude, w.longitude),
-        6,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_TrackPainter old) =>
-      trackPoints.length != old.trackPoints.length ||
-      waypoints.length != old.waypoints.length;
-}
-
-// ─── Stat Card ──────────────────────────────────────────────────────
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+/// Stat metric card for telemetry readouts.
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
     required this.icon,
     required this.label,
     required this.value,
-    required this.color,
+    required this.accentColor,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final Color color;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 6),
-                Text(
+    return Container(
+      decoration: PatrolTheme.cardDecoration(),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: accentColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
                   label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: PatrolTheme.charcoalMuted,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
               ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: PatrolTheme.charcoal,
+              letterSpacing: 0.2,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

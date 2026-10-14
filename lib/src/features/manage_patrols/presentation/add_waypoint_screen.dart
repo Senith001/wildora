@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 
 import '../application/patrol_controller.dart';
 import '../data/patrol_models.dart';
+import 'patrol_theme.dart';
+import 'patrol_widgets.dart';
 
 /// Screen 3: Add Waypoint
 ///
-/// Allows a ranger to record a point of interest during an active patrol
-/// with GPS or manual coordinates, category, optional note, and optional
-/// photo reference.
+/// Tactical field entry screen to log observations, sightings, water sources,
+/// markers, or evidence during an active patrol with GPS or manual coordinates,
+/// optional notes, and optional photo reference.
 class AddWaypointScreen extends StatefulWidget {
   const AddWaypointScreen({super.key, required this.controller});
 
@@ -34,6 +36,12 @@ class _AddWaypointScreenState extends State<AddWaypointScreen> {
   @override
   void initState() {
     super.initState();
+    final recent = widget.controller.latestRecentFix;
+    if (recent != null) {
+      _latController.text = recent.latitude.toStringAsFixed(6);
+      _lngController.text = recent.longitude.toStringAsFixed(6);
+      _locationSource = LocationSource.gps;
+    }
     _captureGps();
   }
 
@@ -66,7 +74,7 @@ class _AddWaypointScreenState extends State<AddWaypointScreen> {
         setState(() {
           _locationSource = LocationSource.manual;
           _isCapturingGps = false;
-          _error = 'GPS unavailable. Enter coordinates manually.';
+          _error = 'GPS fix unavailable. Please input coordinates manually.';
         });
       }
     }
@@ -118,14 +126,14 @@ class _AddWaypointScreenState extends State<AddWaypointScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Waypoint saved successfully!'),
-            backgroundColor: Color(0xFF2E7D32),
+            content: Text('Waypoint recorded to local patrol storage!'),
+            backgroundColor: PatrolTheme.forestPrimary,
           ),
         );
         Navigator.pop(context);
       } else {
         setState(() {
-          _error = widget.controller.error ?? 'Failed to save. Please retry.';
+          _error = widget.controller.error ?? 'Failed to save waypoint. Please retry.';
         });
       }
     }
@@ -133,384 +141,445 @@ class _AddWaypointScreenState extends State<AddWaypointScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return Scaffold(
+      backgroundColor: PatrolTheme.background,
       appBar: AppBar(
         title: const Text('Add Waypoint'),
+        backgroundColor: PatrolTheme.forestDeep,
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Waypoint Type selector
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Waypoint Type',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: WaypointType.values.map((type) {
-                          final selected = _selectedType == type;
-                          return ChoiceChip(
-                            label: Text(type.label),
-                            selected: selected,
-                            onSelected: (_) =>
-                                setState(() => _selectedType = type),
-                            selectedColor: colors.primaryContainer,
-                            labelStyle: TextStyle(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: ResponsiveContentWrapper(
+            padding: EdgeInsets.zero,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ─── Waypoint Type Selector ───────────────────────────────
+                  OperationalCard(
+                    title: 'Waypoint Type',
+                    icon: Icons.category_outlined,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: WaypointType.values.map((type) {
+                        final selected = _selectedType == type;
+                        return ChoiceChip(
+                          label: Text(type.label),
+                          selected: selected,
+                          onSelected: (_) =>
+                              setState(() => _selectedType = type),
+                          selectedColor: PatrolTheme.forestPrimary,
+                          backgroundColor: PatrolTheme.surfaceElevated,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: PatrolTheme.radiusFull,
+                            side: BorderSide(
                               color: selected
-                                  ? colors.onPrimaryContainer
-                                  : colors.onSurface,
-                              fontWeight: selected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                            avatar: Icon(
-                              _typeIcon(type),
-                              size: 18,
-                              color: selected
-                                  ? colors.onPrimaryContainer
-                                  : colors.onSurface.withValues(alpha: 0.6),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Location section
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Location',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                                  ? PatrolTheme.forestPrimary
+                                  : PatrolTheme.borderLight,
                             ),
                           ),
-                          const Spacer(),
-                          // Location source badge
+                          labelStyle: TextStyle(
+                            color: selected ? Colors.white : PatrolTheme.charcoal,
+                            fontWeight:
+                                selected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                          avatar: Icon(
+                            _typeIcon(type),
+                            size: 16,
+                            color: selected
+                                ? Colors.white
+                                : PatrolTheme.forestPrimary,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ─── Spatial Coordinates & Source ──────────────────────────
+                  OperationalCard(
+                    title: 'Spatial Location Coordinates',
+                    icon: Icons.pin_drop_outlined,
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _locationSource == LocationSource.gps
+                            ? PatrolTheme.successSurface
+                            : PatrolTheme.amberSurface,
+                        borderRadius: PatrolTheme.radiusFull,
+                        border: Border.all(
+                          color: _locationSource == LocationSource.gps
+                              ? PatrolTheme.successBorder
+                              : PatrolTheme.amberBorder,
+                        ),
+                      ),
+                      child: Text(
+                        _locationSource == LocationSource.gps
+                            ? 'GPS ACTIVE'
+                            : 'MANUAL ENTRY',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: _locationSource == LocationSource.gps
+                              ? PatrolTheme.success
+                              : PatrolTheme.amberDark,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_isCapturingGps)
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: _locationSource == LocationSource.gps
-                                  ? const Color(0xFF2E7D32).withValues(alpha: 0.1)
-                                  : Colors.orange.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _locationSource == LocationSource.gps
-                                    ? const Color(0xFF2E7D32)
-                                    : Colors.orange,
+                              color: PatrolTheme.surfaceElevated,
+                              borderRadius: PatrolTheme.radiusSm,
+                            ),
+                            child: const Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: PatrolTheme.forestPrimary,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Acquiring GPS fix coordinates…',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: PatrolTheme.charcoalMuted,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _locationSource == LocationSource.gps
-                                      ? Icons.gps_fixed
-                                      : Icons.edit_location_alt,
-                                  size: 14,
-                                  color:
-                                      _locationSource == LocationSource.gps
-                                          ? const Color(0xFF2E7D32)
-                                          : Colors.orange.shade700,
+                          )
+                        else ...[
+                          // Latitude input
+                          TextFormField(
+                            controller: _latController,
+                            decoration: InputDecoration(
+                              labelText: 'Latitude (-90.0 to +90.0)',
+                              hintText: 'e.g. 6.927150',
+                              prefixIcon: const Icon(Icons.north,
+                                  size: 18, color: PatrolTheme.forestPrimary),
+                              filled: true,
+                              fillColor: PatrolTheme.surfaceElevated,
+                              border: OutlineInputBorder(
+                                borderRadius: PatrolTheme.radiusSm,
+                                borderSide: const BorderSide(
+                                    color: PatrolTheme.borderLight),
+                              ),
+                            ),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'^-?\d*\.?\d*$'),
+                              ),
+                            ],
+                            onChanged: (_) {
+                              if (_locationSource != LocationSource.manual) {
+                                setState(() =>
+                                    _locationSource = LocationSource.manual);
+                              }
+                            },
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Latitude is required.';
+                              }
+                              final v = double.tryParse(val.trim());
+                              if (v == null || !v.isFinite) {
+                                return 'Enter a valid number.';
+                              }
+                              if (v < -90 || v > 90) {
+                                return 'Must be between -90 and 90.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Longitude input
+                          TextFormField(
+                            controller: _lngController,
+                            decoration: InputDecoration(
+                              labelText: 'Longitude (-180.0 to +180.0)',
+                              hintText: 'e.g. 79.861200',
+                              prefixIcon: const Icon(Icons.east,
+                                  size: 18, color: PatrolTheme.forestPrimary),
+                              filled: true,
+                              fillColor: PatrolTheme.surfaceElevated,
+                              border: OutlineInputBorder(
+                                borderRadius: PatrolTheme.radiusSm,
+                                borderSide: const BorderSide(
+                                    color: PatrolTheme.borderLight),
+                              ),
+                            ),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'^-?\d*\.?\d*$'),
+                              ),
+                            ],
+                            onChanged: (_) {
+                              if (_locationSource != LocationSource.manual) {
+                                setState(() =>
+                                    _locationSource = LocationSource.manual);
+                              }
+                            },
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Longitude is required.';
+                              }
+                              final v = double.tryParse(val.trim());
+                              if (v == null || !v.isFinite) {
+                                return 'Enter a valid number.';
+                              }
+                              if (v < -180 || v > 180) {
+                                return 'Must be between -180 and 180.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 8),
+
+                          // GPS Reload button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                onPressed: _captureGps,
+                                icon: const Icon(Icons.gps_fixed, size: 16),
+                                label: const Text('Refresh GPS Position'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: PatrolTheme.forestPrimary,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _locationSource == LocationSource.gps
-                                      ? 'GPS'
-                                      : 'Manual',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        _locationSource == LocationSource.gps
-                                            ? const Color(0xFF2E7D32)
-                                            : Colors.orange.shade700,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ─── Field Notes ──────────────────────────────────────────
+                  OperationalCard(
+                    title: 'Field Observation Notes',
+                    icon: Icons.notes_outlined,
+                    child: TextFormField(
+                      controller: _noteController,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Provide observational details, species identifier, snare condition, or hazard remarks…',
+                        filled: true,
+                        fillColor: PatrolTheme.surfaceElevated,
+                        border: OutlineInputBorder(
+                          borderRadius: PatrolTheme.radiusSm,
+                          borderSide:
+                              const BorderSide(color: PatrolTheme.borderLight),
+                        ),
+                      ),
+                      maxLines: 3,
+                      maxLength: 500,
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ─── Photographic Evidence Reference ──────────────────────
+                  OperationalCard(
+                    title: 'Photographic Evidence (Optional)',
+                    icon: Icons.camera_alt_outlined,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_photoReference != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: PatrolTheme.forestSurface,
+                              borderRadius: PatrolTheme.radiusSm,
+                              border:
+                                  Border.all(color: PatrolTheme.forestBorder),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    color: PatrolTheme.forestPrimary, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Reference: ${_photoReference!}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: PatrolTheme.charcoal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  tooltip: 'Remove photo',
+                                  onPressed: () =>
+                                      setState(() => _photoReference = null),
+                                ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _photoReference =
+                                  'IMG_PATROL_${DateTime.now().millisecondsSinceEpoch}';
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Camera capture simulated. Photographic evidence attached.'),
+                                backgroundColor: PatrolTheme.forestPrimary,
+                              ),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: PatrolTheme.forestPrimary,
+                            side: const BorderSide(
+                                color: PatrolTheme.forestBorder),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: PatrolTheme.radiusSm,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                          label: Text(_photoReference != null
+                              ? 'Replace Photo'
+                              : 'Attach Photo'),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ─── Inline Error Banner ──────────────────────────────────
+                  if (_error != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: PatrolTheme.errorSurface,
+                        borderRadius: PatrolTheme.radiusSm,
+                        border: Border.all(color: PatrolTheme.errorBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: PatrolTheme.error, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: PatrolTheme.error,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
 
-                      if (_isCapturingGps)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 8),
-                                Text('Acquiring GPS fix…'),
-                              ],
-                            ),
-                          ),
-                        )
-                      else ...[
-                        // Latitude
-                        TextFormField(
-                          controller: _latController,
-                          decoration: const InputDecoration(
-                            labelText: 'Latitude',
-                            hintText: 'e.g. 6.9271',
-                            prefixIcon: Icon(Icons.north),
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                            signed: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^-?\d*\.?\d*$'),
-                            ),
-                          ],
-                          onChanged: (_) {
-                            if (_locationSource != LocationSource.manual) {
-                              setState(
-                                  () => _locationSource = LocationSource.manual);
-                            }
-                          },
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Latitude is required.';
-                            }
-                            final v = double.tryParse(val.trim());
-                            if (v == null || !v.isFinite) {
-                              return 'Enter a valid number.';
-                            }
-                            if (v < -90 || v > 90) {
-                              return 'Must be between -90 and 90.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-                        // Longitude
-                        TextFormField(
-                          controller: _lngController,
-                          decoration: const InputDecoration(
-                            labelText: 'Longitude',
-                            hintText: 'e.g. 79.8612',
-                            prefixIcon: Icon(Icons.east),
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                            signed: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^-?\d*\.?\d*$'),
-                            ),
-                          ],
-                          onChanged: (_) {
-                            if (_locationSource != LocationSource.manual) {
-                              setState(
-                                  () => _locationSource = LocationSource.manual);
-                            }
-                          },
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Longitude is required.';
-                            }
-                            final v = double.tryParse(val.trim());
-                            if (v == null || !v.isFinite) {
-                              return 'Enter a valid number.';
-                            }
-                            if (v < -180 || v > 180) {
-                              return 'Must be between -180 and 180.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 8),
-
-                        // GPS Retry button
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: _captureGps,
-                            icon: const Icon(Icons.gps_fixed, size: 16),
-                            label: const Text('Retry GPS'),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Notes section (optional)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  // ─── Action Buttons ───────────────────────────────────────
+                  Row(
                     children: [
-                      Text(
-                        'Notes (Optional)',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _noteController,
-                        decoration: const InputDecoration(
-                          hintText: 'Describe what you observed…',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                        maxLength: 500,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Photo section (optional)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Photo (Optional)',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          // Photo attachment - uses a reference string.
-                          // In production this would open image_picker.
-                          setState(() {
-                            _photoReference =
-                                'photo_${DateTime.now().millisecondsSinceEpoch}';
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Photo capture simulated. '
-                                'In production, this opens the device camera.',
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: _isSaving
+                                ? null
+                                : () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: PatrolTheme.charcoal,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: PatrolTheme.radiusMd,
                               ),
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.camera_alt),
-                        label: Text(
-                          _photoReference != null
-                              ? 'Photo attached ✓'
-                              : 'Attach Photo',
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        flex: 2,
+                        child: SizedBox(
+                          height: 52,
+                          child: FilledButton.icon(
+                            onPressed: _isSaving ? null : _saveWaypoint,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: PatrolTheme.forestPrimary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: PatrolTheme.radiusMd,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            icon: _isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.check, size: 20),
+                            label: Text(
+                                _isSaving ? 'Saving…' : 'Save Waypoint'),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 16),
-
-              // Error display
-              if (_error != null)
-                Card(
-                  color: Colors.red.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.red.shade700),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _error!,
-                            style: TextStyle(color: Colors.red.shade900),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: _isSaving ? null : () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: _isSaving ? null : _saveWaypoint,
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.save),
-                        label: Text(_isSaving ? 'Saving…' : 'Save Waypoint'),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
-
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         ),
       ),

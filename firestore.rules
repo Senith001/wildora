@@ -52,11 +52,102 @@ service cloud.firestore {
       allow read, write: if request.time < timestamp.date(2026, 12, 31);
     }
     
+    // Patrol Role-Based Access Control helper functions
+    function isPatrolManager() {
+      return request.auth != null && (
+        request.auth.token.get('role', '') in ['manager', 'admin'] ||
+        (exists(/databases/$(database)/documents/officers/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/officers/$(request.auth.uid)).data.get('role', '') in ['manager', 'admin', 'Manager', 'Admin'])
+      );
+    }
+
+    // Patrol Assignments:
+    // Park managers and administrators create and manage assignments.
+    // Assigned rangers can read their own assignments and update assignment status.
+    match /patrolAssignments/{assignmentId} {
+      allow read: if isPatrolManager() ||
+        (request.auth != null && resource.data.assignedRangerId == request.auth.uid);
+
+      allow create: if isPatrolManager() &&
+        request.resource.data.assignmentId == assignmentId &&
+        request.resource.data.assignedRangerId is string &&
+        request.resource.data.routeName is string;
+
+      allow update: if isPatrolManager() || (
+        request.auth != null &&
+        resource.data.assignedRangerId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+
+      allow delete: if isPatrolManager();
+    }
+
+    // Patrol Sessions:
+    // Authenticated rangers create and record their own patrol telemetry.
+    // Managers and administrators can read all synchronized sessions for operational review.
+    match /patrolSessions/{sessionId} {
+      allow read: if isPatrolManager() ||
+        (request.auth != null && resource.data.rangerId == request.auth.uid);
+
+      allow create: if request.auth != null &&
+        request.resource.data.sessionId == sessionId &&
+        request.resource.data.rangerId == request.auth.uid;
+
+      allow update: if request.auth != null &&
+        resource.data.rangerId == request.auth.uid &&
+        request.resource.data.rangerId == request.auth.uid &&
+        request.resource.data.sessionId == sessionId;
+
+      allow delete: if isPatrolManager();
+    }
+
+    // Active Patrol Live Locations:
+    // Rangers publish their real-time telemetry while actively on patrol.
+    // Managers can monitor all active rangers in real-time.
+    match /activePatrolLocations/{rangerId} {
+      allow read: if isPatrolManager() ||
+        (request.auth != null && request.auth.uid == rangerId);
+
+      allow create, update, delete: if request.auth != null && request.auth.uid == rangerId;
+    }
+    
     // NOTE: Production deployment requires per-role authentication:
     // - Rangers: read/write animals, alerts; read highRiskZones, officers, dutyRoster
     // - CLOs: read animals, alerts, highRiskZones; read officers
     // - Users: read/write own userPreferences only
     
+    // Conflict reporting only; other collections retain their existing policy.
+    function conflictClo() {
+      return request.auth != null && request.auth.token.get('role', '') == 'clo';
+    }
+    match /conflictReports/{reportId} {
+      allow read: if request.auth != null && ((conflictClo() &&
+        (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false))) ||
+        resource.data.get('isDemo', false) == true ||
+        resource.data.get('reporterId', '') == request.auth.uid);
+      allow create: if request.auth != null &&
+        request.resource.data.id == reportId &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.get('isDemo', false) == request.auth.token.get('isDemo', false) &&
+        request.resource.data.syncStatus == 'synced' &&
+        request.resource.data.reportStatus == 'submitted' &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() > 0 && request.resource.data.description.size() <= 500 &&
+        request.resource.data.latitude is number && request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90 &&
+        request.resource.data.longitude is number && request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180 &&
+        request.resource.data.locationDescription is string && request.resource.data.locationDescription.size() > 0 &&
+        request.resource.data.wildlifeType in ['elephant', 'leopard', 'wildBoar', 'other'] &&
+        request.resource.data.conflictType in ['cropRaiding', 'animalSighting', 'propertyDamage', 'threatToPeople', 'other'];
+      allow update: if conflictClo() &&
+        (!request.auth.token.get('isDemo', false) || resource.data.get('isDemo', false)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportStatus', 'reviewedBy', 'reviewedAt', 'resolvedAt', 'responseNotes', 'updatedAt']) &&
+        ((resource.data.reportStatus == 'submitted' && request.resource.data.reportStatus == 'underReview') ||
+         (resource.data.reportStatus == 'underReview' && request.resource.data.reportStatus == 'resolved' &&
+          request.resource.data.responseNotes is string && request.resource.data.responseNotes.size() > 0));
+      allow delete: if false;
+    }
+
+
     // Deny all other paths by default
     match /{document=**} {
       allow read, write: if false;

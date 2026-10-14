@@ -6,7 +6,39 @@ import 'dart:math';
 enum PatrolLifecycleStatus { assigned, active, completed }
 
 /// How a location was obtained.
-enum LocationSource { gps, manual }
+enum LocationSource { gps, manual, simulated }
+
+/// GPS hardware and permission signal status.
+enum GpsSignalStatus {
+  locating,
+  available,
+  stale,
+  denied,
+  permanentlyDenied,
+  servicesDisabled,
+  providerError,
+}
+
+/// Status of an assigned patrol route.
+enum PatrolAssignmentStatus {
+  assigned,
+  inProgress,
+  completed,
+  cancelled;
+
+  String get label {
+    switch (this) {
+      case PatrolAssignmentStatus.assigned:
+        return 'Assigned';
+      case PatrolAssignmentStatus.inProgress:
+        return 'In Progress';
+      case PatrolAssignmentStatus.completed:
+        return 'Completed';
+      case PatrolAssignmentStatus.cancelled:
+        return 'Cancelled';
+    }
+  }
+}
 
 /// Category of waypoint recorded in the field.
 enum WaypointType {
@@ -113,6 +145,7 @@ class Waypoint {
     required this.timestamp,
     this.note,
     this.photoReference,
+    this.isSynchronized = false,
   });
 
   final String id;
@@ -124,6 +157,32 @@ class Waypoint {
   final DateTime timestamp;
   final String? note;
   final String? photoReference;
+  final bool isSynchronized;
+
+  Waypoint copyWith({
+    String? id,
+    String? sessionId,
+    WaypointType? type,
+    double? latitude,
+    double? longitude,
+    LocationSource? locationSource,
+    DateTime? timestamp,
+    String? note,
+    String? photoReference,
+    bool? isSynchronized,
+  }) =>
+      Waypoint(
+        id: id ?? this.id,
+        sessionId: sessionId ?? this.sessionId,
+        type: type ?? this.type,
+        latitude: latitude ?? this.latitude,
+        longitude: longitude ?? this.longitude,
+        locationSource: locationSource ?? this.locationSource,
+        timestamp: timestamp ?? this.timestamp,
+        note: note ?? this.note,
+        photoReference: photoReference ?? this.photoReference,
+        isSynchronized: isSynchronized ?? this.isSynchronized,
+      );
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -135,6 +194,7 @@ class Waypoint {
         'timestamp': timestamp.toUtc().toIso8601String(),
         'note': note,
         'photoReference': photoReference,
+        'isSynchronized': isSynchronized,
       };
 
   factory Waypoint.fromMap(Map<dynamic, dynamic> map) => Waypoint(
@@ -148,6 +208,7 @@ class Waypoint {
         timestamp: DateTime.parse(map['timestamp'] as String).toLocal(),
         note: map['note'] as String?,
         photoReference: map['photoReference'] as String?,
+        isSynchronized: (map['isSynchronized'] as bool?) ?? false,
       );
 }
 
@@ -160,24 +221,28 @@ class SyncMetadata {
     this.localRevision = 1,
     this.serverRevision,
     this.lastSyncError,
+    this.isSimulation = false,
   });
 
   final SyncStatus syncStatus;
   final int localRevision;
   final int? serverRevision;
   final String? lastSyncError;
+  final bool isSimulation;
 
   SyncMetadata copyWith({
     SyncStatus? syncStatus,
     int? localRevision,
     int? serverRevision,
     String? lastSyncError,
+    bool? isSimulation,
   }) =>
       SyncMetadata(
         syncStatus: syncStatus ?? this.syncStatus,
         localRevision: localRevision ?? this.localRevision,
         serverRevision: serverRevision ?? this.serverRevision,
         lastSyncError: lastSyncError,
+        isSimulation: isSimulation ?? this.isSimulation,
       );
 
   Map<String, dynamic> toMap() => {
@@ -185,6 +250,7 @@ class SyncMetadata {
         'localRevision': localRevision,
         'serverRevision': serverRevision,
         'lastSyncError': lastSyncError,
+        'isSimulation': isSimulation,
       };
 
   factory SyncMetadata.fromMap(Map<dynamic, dynamic> map) => SyncMetadata(
@@ -192,6 +258,7 @@ class SyncMetadata {
         localRevision: (map['localRevision'] as num).toInt(),
         serverRevision: (map['serverRevision'] as num?)?.toInt(),
         lastSyncError: map['lastSyncError'] as String?,
+        isSimulation: map['isSimulation'] as bool? ?? false,
       );
 }
 
@@ -226,6 +293,150 @@ class RouteDeviation {
       );
 }
 
+// ─── PatrolCheckpoint ───────────────────────────────────────────────
+
+/// An ordered checkpoint defining a segment of the assigned patrol route.
+class PatrolCheckpoint {
+  const PatrolCheckpoint({
+    required this.order,
+    required this.latitude,
+    required this.longitude,
+    required this.label,
+  });
+
+  final int order;
+  final double latitude;
+  final double longitude;
+  final String label;
+
+  static bool isValidLatitude(double lat) =>
+      lat.isFinite && lat >= -90.0 && lat <= 90.0;
+
+  static bool isValidLongitude(double lng) =>
+      lng.isFinite && lng >= -180.0 && lng <= 180.0;
+
+  Map<String, dynamic> toMap() => {
+        'order': order,
+        'latitude': latitude,
+        'longitude': longitude,
+        'label': label,
+      };
+
+  factory PatrolCheckpoint.fromMap(Map<dynamic, dynamic> map) =>
+      PatrolCheckpoint(
+        order: (map['order'] as num).toInt(),
+        latitude: (map['latitude'] as num).toDouble(),
+        longitude: (map['longitude'] as num).toDouble(),
+        label: map['label'] as String? ?? 'Checkpoint',
+      );
+}
+
+// ─── PatrolAssignment ───────────────────────────────────────────────
+
+/// A planned patrol route assigned by a Park Manager to a Ranger.
+class PatrolAssignment {
+  PatrolAssignment({
+    required this.id,
+    required this.routeName,
+    required this.area,
+    required this.assignedRangerId,
+    this.assignedRangerName = 'Assigned Ranger',
+    this.assignedByManagerId = 'manager_dispatch',
+    this.checkpoints = const [],
+    required this.plannedDistanceKm,
+    required this.estimatedDurationMinutes,
+    required this.assignedDate,
+    DateTime? createdAt,
+    this.status = PatrolAssignmentStatus.assigned,
+  }) : createdAt = createdAt ?? assignedDate;
+
+  final String id;
+  final String routeName;
+  final String area;
+  final String assignedRangerId;
+  final String assignedRangerName;
+  final String assignedByManagerId;
+  final List<PatrolCheckpoint> checkpoints;
+  final double plannedDistanceKm;
+  final int estimatedDurationMinutes;
+  final DateTime assignedDate;
+  final DateTime createdAt;
+  final PatrolAssignmentStatus status;
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'routeName': routeName,
+        'area': area,
+        'assignedRangerId': assignedRangerId,
+        'assignedRangerName': assignedRangerName,
+        'assignedByManagerId': assignedByManagerId,
+        'checkpoints': checkpoints.map((c) => c.toMap()).toList(),
+        'plannedDistanceKm': plannedDistanceKm,
+        'estimatedDurationMinutes': estimatedDurationMinutes,
+        'assignedDate': assignedDate.toUtc().toIso8601String(),
+        'createdAt': createdAt.toUtc().toIso8601String(),
+        'status': status.name,
+      };
+
+  factory PatrolAssignment.fromMap(Map<dynamic, dynamic> map) =>
+      PatrolAssignment(
+        id: map['id'] as String,
+        routeName: map['routeName'] as String? ?? 'Assigned Patrol Route',
+        area: map['area'] as String? ?? 'General Conservation Sector',
+        assignedRangerId: map['assignedRangerId'] as String? ?? '',
+        assignedRangerName:
+            map['assignedRangerName'] as String? ?? 'Assigned Ranger',
+        assignedByManagerId:
+            map['assignedByManagerId'] as String? ?? 'Park Manager',
+        checkpoints: (map['checkpoints'] as List? ?? [])
+            .map((c) => PatrolCheckpoint.fromMap(c as Map))
+            .toList(),
+        plannedDistanceKm:
+            (map['plannedDistanceKm'] as num?)?.toDouble() ?? 5.0,
+        estimatedDurationMinutes:
+            (map['estimatedDurationMinutes'] as num?)?.toInt() ?? 120,
+        assignedDate: map['assignedDate'] != null
+            ? DateTime.parse(map['assignedDate'] as String).toLocal()
+            : DateTime.now(),
+        createdAt: map['createdAt'] != null
+            ? DateTime.parse(map['createdAt'] as String).toLocal()
+            : DateTime.now(),
+        status: map['status'] != null
+            ? PatrolAssignmentStatus.values.byName(map['status'] as String)
+            : PatrolAssignmentStatus.assigned,
+      );
+
+  PatrolAssignment copyWith({
+    String? id,
+    String? routeName,
+    String? area,
+    String? assignedRangerId,
+    String? assignedRangerName,
+    String? assignedByManagerId,
+    List<PatrolCheckpoint>? checkpoints,
+    double? plannedDistanceKm,
+    int? estimatedDurationMinutes,
+    DateTime? assignedDate,
+    DateTime? createdAt,
+    PatrolAssignmentStatus? status,
+  }) =>
+      PatrolAssignment(
+        id: id ?? this.id,
+        routeName: routeName ?? this.routeName,
+        area: area ?? this.area,
+        assignedRangerId: assignedRangerId ?? this.assignedRangerId,
+        assignedRangerName: assignedRangerName ?? this.assignedRangerName,
+        assignedByManagerId: assignedByManagerId ?? this.assignedByManagerId,
+        checkpoints: checkpoints ?? this.checkpoints,
+        plannedDistanceKm: plannedDistanceKm ?? this.plannedDistanceKm,
+        estimatedDurationMinutes:
+            estimatedDurationMinutes ?? this.estimatedDurationMinutes,
+        assignedDate: assignedDate ?? this.assignedDate,
+        createdAt: createdAt ?? this.createdAt,
+        status: status ?? this.status,
+      );
+}
+
 // ─── PatrolSession ──────────────────────────────────────────────────
 
 /// Full patrol session encompassing assignment, tracking, and completion data.
@@ -241,6 +452,7 @@ class PatrolSession {
     this.routeName = 'Assigned Patrol Route',
     this.estimatedDurationMinutes = 120,
     this.plannedDistanceKm = 8.5,
+    this.checkpoints = const [],
     this.deviations = const [],
     this.trackPoints = const [],
     this.waypoints = const [],
@@ -257,6 +469,7 @@ class PatrolSession {
   final String routeName;
   final int estimatedDurationMinutes;
   final double plannedDistanceKm;
+  final List<PatrolCheckpoint> checkpoints;
   final List<RouteDeviation> deviations;
   final List<TrackPoint> trackPoints;
   final List<Waypoint> waypoints;
@@ -269,16 +482,31 @@ class PatrolSession {
     return end.difference(startTime!);
   }
 
-  /// Recorded GPS travel distance in kilometres (excludes manual waypoints).
+  /// Maximum gap (in minutes) between successive GPS fixes before the
+  /// chain is considered broken. Segments across a gap are not connected.
+  static const int _gapThresholdMinutes = 5;
+
+  /// Recorded GPS travel distance in kilometres.
+  ///
+  /// Only GPS-source track points contribute to distance. Manual waypoints
+  /// are excluded. Distance is NOT connected across known recording gaps
+  /// (gaps of [_gapThresholdMinutes] minutes or more between consecutive
+  /// GPS fixes).
   double get recordedDistanceKm {
-    if (trackPoints.length < 2) return 0.0;
+    final gpsPoints =
+        trackPoints.where((p) => p.source == LocationSource.gps).toList();
+    if (gpsPoints.length < 2) return 0.0;
     double total = 0.0;
-    for (int i = 1; i < trackPoints.length; i++) {
+    for (int i = 1; i < gpsPoints.length; i++) {
+      final gap = gpsPoints[i]
+          .timestamp
+          .difference(gpsPoints[i - 1].timestamp);
+      if (gap.inMinutes >= _gapThresholdMinutes) continue; // skip gap
       total += _haversineKm(
-        trackPoints[i - 1].latitude,
-        trackPoints[i - 1].longitude,
-        trackPoints[i].latitude,
-        trackPoints[i].longitude,
+        gpsPoints[i - 1].latitude,
+        gpsPoints[i - 1].longitude,
+        gpsPoints[i].latitude,
+        gpsPoints[i].longitude,
       );
     }
     return total;
@@ -286,11 +514,15 @@ class PatrolSession {
 
   /// Whether there were gaps in GPS recording.
   bool get hasGpsGaps {
-    if (trackPoints.length < 2) return lifecycleStatus == PatrolLifecycleStatus.completed;
-    for (int i = 1; i < trackPoints.length; i++) {
+    final gpsPoints =
+        trackPoints.where((p) => p.source == LocationSource.gps).toList();
+    if (gpsPoints.length < 2) {
+      return lifecycleStatus == PatrolLifecycleStatus.completed;
+    }
+    for (int i = 1; i < gpsPoints.length; i++) {
       final gap =
-          trackPoints[i].timestamp.difference(trackPoints[i - 1].timestamp);
-      if (gap.inMinutes > 5) return true;
+          gpsPoints[i].timestamp.difference(gpsPoints[i - 1].timestamp);
+      if (gap.inMinutes >= _gapThresholdMinutes) return true;
     }
     return false;
   }
@@ -306,6 +538,7 @@ class PatrolSession {
     String? routeName,
     int? estimatedDurationMinutes,
     double? plannedDistanceKm,
+    List<PatrolCheckpoint>? checkpoints,
     List<RouteDeviation>? deviations,
     List<TrackPoint>? trackPoints,
     List<Waypoint>? waypoints,
@@ -323,6 +556,7 @@ class PatrolSession {
         estimatedDurationMinutes:
             estimatedDurationMinutes ?? this.estimatedDurationMinutes,
         plannedDistanceKm: plannedDistanceKm ?? this.plannedDistanceKm,
+        checkpoints: checkpoints ?? this.checkpoints,
         deviations: deviations ?? this.deviations,
         trackPoints: trackPoints ?? this.trackPoints,
         waypoints: waypoints ?? this.waypoints,
@@ -340,6 +574,7 @@ class PatrolSession {
         'routeName': routeName,
         'estimatedDurationMinutes': estimatedDurationMinutes,
         'plannedDistanceKm': plannedDistanceKm,
+        'checkpoints': checkpoints.map((c) => c.toMap()).toList(),
         'deviations': deviations.map((d) => d.toMap()).toList(),
         'trackPoints': trackPoints.map((t) => t.toMap()).toList(),
         'waypoints': waypoints.map((w) => w.toMap()).toList(),
@@ -364,6 +599,9 @@ class PatrolSession {
             (map['estimatedDurationMinutes'] as num?)?.toInt() ?? 120,
         plannedDistanceKm:
             (map['plannedDistanceKm'] as num?)?.toDouble() ?? 8.5,
+        checkpoints: (map['checkpoints'] as List? ?? [])
+            .map((c) => PatrolCheckpoint.fromMap(c as Map))
+            .toList(),
         deviations: (map['deviations'] as List? ?? [])
             .map((d) => RouteDeviation.fromMap(d as Map))
             .toList(),
