@@ -203,21 +203,8 @@ class InMemoryAlertRepository implements AlertRepository {
     if (forceError) throw Exception('Forced error');
 
     final alertId = 'alert_${_nextId++}';
-    final alertWithId = Alert(
-      alertId: alertId,
-      type: alert.type,
-      timestamp: alert.timestamp,
-      status: alert.status,
-      responseStatus: alert.responseStatus,
-      respondingOfficerId: alert.respondingOfficerId,
-      respondingOfficerName: alert.respondingOfficerName,
-      respondingAt: alert.respondingAt,
-      animalId: alert.animalId,
-      zoneId: alert.zoneId,
-      location: alert.location,
-      animalName: alert.animalName,
-      locationLabel: alert.locationLabel,
-    );
+    // Preserve all fields (incl. riskLevel/resolvedAt) by copying with the new id.
+    final alertWithId = alert.copyWith(alertId: alertId);
 
     _alerts[alertId] = alertWithId;
     _emitAlertsUpdate();

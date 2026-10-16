@@ -220,6 +220,71 @@ void main() {
       expect(updated.alertId, equals(original.alertId)); // Unchanged
     });
 
+    test('Alert toMap includes riskLevel when set', () {
+      final original = Alert(
+        alertId: 'alert-01',
+        type: 'high_risk_movement',
+        timestamp: Timestamp.now(),
+        status: 'active',
+        responseStatus: 'unclaimed',
+        animalId: 'elephant-01',
+        zoneId: 'zone-01',
+        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+        animalName: 'Jumbo',
+        riskLevel: 'High',
+      );
+
+      final map = original.toMap();
+
+      expect(map.containsKey('riskLevel'), isTrue);
+      expect(map['riskLevel'], equals('High'));
+
+      final restored = Alert.fromMap('alert-01', map);
+      expect(restored.riskLevel, equals('High'));
+    });
+
+    test('Alert fromMap with no riskLevel key yields null (legacy)', () {
+      // Legacy documents written before riskLevel existed have no such key.
+      final map = {
+        'type': 'high_risk_movement',
+        'timestamp': Timestamp.now(),
+        'status': 'active',
+        'responseStatus': 'unclaimed',
+        'animalId': 'elephant-01',
+        'zoneId': 'zone-01',
+        'location': {'latitude': -1.2921, 'longitude': 36.8219},
+        'animalName': 'Jumbo',
+        // No riskLevel key at all
+      };
+
+      final restored = Alert.fromMap('alert-01', map);
+
+      expect(restored.riskLevel, isNull);
+    });
+
+    test('Alert copyWith updates riskLevel', () {
+      final original = Alert(
+        alertId: 'alert-01',
+        type: 'high_risk_movement',
+        timestamp: Timestamp.now(),
+        status: 'active',
+        responseStatus: 'unclaimed',
+        animalId: 'elephant-01',
+        zoneId: 'zone-01',
+        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+        animalName: 'Jumbo',
+        riskLevel: 'Low',
+      );
+
+      expect(original.riskLevel, equals('Low'));
+
+      final updated = original.copyWith(riskLevel: 'Medium');
+
+      expect(updated.riskLevel, equals('Medium')); // Changed
+      expect(updated.alertId, equals(original.alertId)); // Unchanged
+      expect(updated.animalName, equals(original.animalName)); // Unchanged
+    });
+
     test('Alert defaults responseStatus to unclaimed when missing', () {
       final map = {
         'type': 'high_risk_movement',

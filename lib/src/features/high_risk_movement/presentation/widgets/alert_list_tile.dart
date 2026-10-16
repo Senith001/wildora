@@ -63,7 +63,7 @@ class AlertListTile extends StatelessWidget {
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildResponseStatusBadge(context, responseStatus),
+            _buildResponseStatusBadge(context, responseStatus, alert.riskLevel),
             const SizedBox(height: 6),
             Icon(
               Icons.chevron_right,
@@ -81,6 +81,7 @@ class AlertListTile extends StatelessWidget {
   Widget _buildResponseStatusBadge(
     BuildContext context,
     String responseStatus,
+    String? riskLevel,
   ) {
     final alertColors = Theme.of(context).extension<AlertColors>()!;
 
@@ -91,9 +92,29 @@ class AlertListTile extends StatelessWidget {
 
     switch (responseStatus) {
       case 'unclaimed':
-        badgeText = 'URGENT';
-        badgeColor = alertColors.critical;
-        textColor = alertColors.onCritical;
+        // Active/unclaimed badge reflects the alert's riskLevel snapshot.
+        switch (riskLevel) {
+          case 'High':
+            badgeText = 'HIGH';
+            badgeColor = alertColors.critical;
+            textColor = alertColors.onCritical;
+            break;
+          case 'Medium':
+            badgeText = 'MEDIUM';
+            badgeColor = alertColors.mediumSeverity;
+            textColor = alertColors.onMediumSeverity;
+            break;
+          case 'Low':
+            badgeText = 'LOW';
+            badgeColor = alertColors.lowSeverity;
+            textColor = alertColors.onLowSeverity;
+            break;
+          default:
+            // Legacy alerts without a riskLevel snapshot.
+            badgeText = 'URGENT';
+            badgeColor = alertColors.critical;
+            textColor = alertColors.onCritical;
+        }
         break;
       case 'responding':
         badgeText = 'RESPONDING';

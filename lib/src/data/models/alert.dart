@@ -22,6 +22,7 @@ class Alert {
   final AlertLocation location;
   final String animalName;
   final String? locationLabel;
+  final String? riskLevel; // 'High' | 'Medium' | 'Low' (nullable for legacy)
 
   const Alert({
     required this.alertId,
@@ -38,6 +39,7 @@ class Alert {
     required this.location,
     required this.animalName,
     this.locationLabel,
+    this.riskLevel,
   });
 
   factory Alert.fromMap(String id, Map<String, dynamic> map) {
@@ -56,6 +58,7 @@ class Alert {
       location: AlertLocation.fromMap(map['location'] as Map<String, dynamic>),
       animalName: map['animalName'] as String,
       locationLabel: map['locationLabel'] as String?,
+      riskLevel: map['riskLevel'] as String?,
     );
   }
 
@@ -75,6 +78,7 @@ class Alert {
       'location': location.toMap(),
       'animalName': animalName,
       'locationLabel': locationLabel,
+      'riskLevel': riskLevel,
     };
   }
 
@@ -94,6 +98,7 @@ class Alert {
     AlertLocation? location,
     String? animalName,
     String? locationLabel,
+    String? riskLevel,
   }) {
     return Alert(
       alertId: alertId ?? this.alertId,
@@ -111,6 +116,7 @@ class Alert {
       location: location ?? this.location,
       animalName: animalName ?? this.animalName,
       locationLabel: locationLabel ?? this.locationLabel,
+      riskLevel: riskLevel ?? this.riskLevel,
     );
   }
 }

@@ -220,6 +220,51 @@ void main() {
         },
       );
 
+      test(
+        'snapshots the matched zone riskLevel onto the created alert',
+        () async {
+          final animal = Animal(
+            animalId: 'elephant-23',
+            name: 'Elephant-23',
+            species: 'Elephant',
+            collarId: 'collar-001',
+            currentLocation: null,
+          );
+          await animalRepo.create(animal);
+
+          // Seed a zone with a known, non-High riskLevel to prove the snapshot
+          // comes from the matched zone (not a hardcoded value).
+          final zone = HighRiskZone(
+            zoneId: 'zone-medium',
+            name: 'Village Approach',
+            riskLevel: 'Medium',
+            center: GeoPoint(-1.2921, 36.8219),
+            radiusMeters: 500.0,
+          );
+          await zoneRepo.create(zone);
+
+          detectionService.nextZoneCheckResult = ZoneCheckResult.inZone(
+            zoneId: zone.zoneId,
+            distance: 100.0,
+          );
+          detectionService.nextNearbyRecipients = ['ranger-amara'];
+
+          await controller.onLocationReceived(
+            'elephant-23',
+            AnimalLocation(
+              latitude: -1.2921,
+              longitude: 36.8219,
+              timestamp: Timestamp.fromDate(DateTime(2026, 10, 8, 12, 0)),
+            ),
+          );
+
+          final alerts = await alertRepo.getAll();
+          expect(alerts, hasLength(1));
+          expect(alerts.first.riskLevel, equals(zone.riskLevel));
+          expect(alerts.first.riskLevel, equals('Medium'));
+        },
+      );
+
       test('handles zone detection with no nearby officers', () async {
         final animal = Animal(
           animalId: 'elephant-23',

@@ -169,6 +169,7 @@ class AnimalMonitoringController extends ChangeNotifier {
           longitude: alertLocation.longitude,
         ),
         locationLabel: zone.name, // Default to zone name
+        riskLevel: zone.riskLevel as String, // Snapshot zone's risk level
       );
 
       // Step 7: Create alert in repository
