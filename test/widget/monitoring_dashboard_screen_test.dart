@@ -65,11 +65,33 @@ void main() {
       preferencesRepository.dispose();
     });
 
+    /// Helper to build a mock alert with a given response status.
+    Alert buildAlert({
+      required String alertId,
+      required String responseStatus,
+      required String animalName,
+      required String locationLabel,
+      Duration age = Duration.zero,
+    }) {
+      return Alert(
+        alertId: alertId,
+        type: 'high_risk_movement',
+        timestamp: Timestamp.fromDate(DateTime.now().subtract(age)),
+        status: 'active',
+        responseStatus: responseStatus,
+        animalId: '$animalName-id',
+        zoneId: 'zone-001',
+        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+        animalName: animalName,
+        locationLabel: locationLabel,
+      );
+    }
+
     testWidgets(
       'renders dashboard with no alerts message when stream is empty',
       (WidgetTester tester) async {
         // Setup: Empty alert stream
-        alertRepository.setMockActiveAlerts([]);
+        alertRepository.seed([]);
 
         await tester.pumpWidget(
           MaterialApp(
@@ -87,52 +109,24 @@ void main() {
         // Verify dashboard elements
         expect(find.text('Monitoring Dashboard'), findsOneWidget);
         expect(find.text('High-Risk Movement Monitoring'), findsOneWidget);
+
+        // Default tab (Active) empty state
         expect(find.text('No Active Alerts'), findsOneWidget);
         expect(
           find.text('All wildlife is safely outside high-risk zones'),
           findsOneWidget,
         );
 
-        // Verify simulate button
-        expect(find.text('Simulate'), findsOneWidget);
-        expect(find.byIcon(Icons.developer_mode), findsOneWidget);
+        // Simulate button is gated off by default
+        expect(find.text('Simulate'), findsNothing);
+        expect(find.byIcon(Icons.developer_mode), findsNothing);
       },
     );
 
-    testWidgets('renders alert list when stream has alerts', (
+    testWidgets('renders the three tab selector labels', (
       WidgetTester tester,
     ) async {
-      // Setup: Mock alerts
-      final mockAlerts = [
-        Alert(
-          alertId: 'alert-001',
-          type: 'high_risk_movement',
-          timestamp: Timestamp.fromDate(DateTime.now()),
-          status: 'active',
-          responseStatus: 'unclaimed',
-          animalId: 'elephant-23',
-          zoneId: 'zone-001',
-          location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
-          animalName: 'Elephant-23',
-          locationLabel: 'Farmland Border',
-        ),
-        Alert(
-          alertId: 'alert-002',
-          type: 'high_risk_movement',
-          timestamp: Timestamp.fromDate(
-            DateTime.now().subtract(const Duration(hours: 1)),
-          ),
-          status: 'active',
-          responseStatus: 'responding',
-          animalId: 'buffalo-22',
-          zoneId: 'zone-002',
-          location: const AlertLocation(latitude: -1.2950, longitude: 36.8200),
-          animalName: 'Buffalo-22',
-          locationLabel: 'Main Road',
-        ),
-      ];
-
-      alertRepository.setMockActiveAlerts(mockAlerts);
+      alertRepository.seed([]);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -146,22 +140,159 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify alert list items
+      expect(find.text('Active'), findsOneWidget);
+      expect(find.text('Responding'), findsOneWidget);
+      expect(find.text('Resolved'), findsOneWidget);
+    });
+
+    testWidgets('renders only unclaimed alerts on the default Active tab', (
+      WidgetTester tester,
+    ) async {
+      alertRepository.seed([
+        buildAlert(
+          alertId: 'alert-001',
+          responseStatus: 'unclaimed',
+          animalName: 'Elephant-23',
+          locationLabel: 'Farmland Border',
+        ),
+        buildAlert(
+          alertId: 'alert-002',
+          responseStatus: 'responding',
+          animalName: 'Buffalo-22',
+          locationLabel: 'Main Road',
+          age: const Duration(hours: 1),
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: MonitoringDashboardScreen(
+            controller: controller,
+            themeController: themeController,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Active tab shows only the unclaimed alert
       expect(find.text('Elephant-23'), findsOneWidget);
-      expect(find.text('Buffalo-22'), findsOneWidget);
       expect(find.text('Farmland Border'), findsOneWidget);
-      expect(find.text('Main Road'), findsOneWidget);
-
-      // Verify status badges
       expect(find.text('URGENT'), findsOneWidget);
-      expect(find.text('RESPONDING'), findsOneWidget);
 
-      // Verify no "no alerts" message
+      // 'SEEN' status is never rendered
+      expect(find.text('SEEN'), findsNothing);
+
+      // The responding alert is filtered out on the Active tab
+      expect(find.text('Buffalo-22'), findsNothing);
+
+      // No "no alerts" message when matching alerts exist
       expect(find.text('No Active Alerts'), findsNothing);
     });
 
+    testWidgets('switching to Responding tab shows only responding alerts', (
+      WidgetTester tester,
+    ) async {
+      alertRepository.seed([
+        buildAlert(
+          alertId: 'alert-001',
+          responseStatus: 'unclaimed',
+          animalName: 'Elephant-23',
+          locationLabel: 'Farmland Border',
+        ),
+        buildAlert(
+          alertId: 'alert-002',
+          responseStatus: 'responding',
+          animalName: 'Buffalo-22',
+          locationLabel: 'Main Road',
+          age: const Duration(hours: 1),
+        ),
+        buildAlert(
+          alertId: 'alert-003',
+          responseStatus: 'resolved',
+          animalName: 'Zebra-07',
+          locationLabel: 'River Crossing',
+          age: const Duration(hours: 2),
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: MonitoringDashboardScreen(
+            controller: controller,
+            themeController: themeController,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Tap the Responding tab
+      await tester.tap(find.text('Responding'));
+      await tester.pumpAndSettle();
+
+      // Only the responding alert is shown
+      expect(find.text('Buffalo-22'), findsOneWidget);
+      expect(find.text('RESPONDING'), findsOneWidget);
+
+      // 'SEEN' status is never rendered
+      expect(find.text('SEEN'), findsNothing);
+
+      // Other statuses are filtered out
+      expect(find.text('Elephant-23'), findsNothing);
+      expect(find.text('Zebra-07'), findsNothing);
+    });
+
+    testWidgets('switching to Resolved tab shows only resolved alerts', (
+      WidgetTester tester,
+    ) async {
+      alertRepository.seed([
+        buildAlert(
+          alertId: 'alert-001',
+          responseStatus: 'unclaimed',
+          animalName: 'Elephant-23',
+          locationLabel: 'Farmland Border',
+        ),
+        buildAlert(
+          alertId: 'alert-003',
+          responseStatus: 'resolved',
+          animalName: 'Zebra-07',
+          locationLabel: 'River Crossing',
+          age: const Duration(hours: 2),
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: MonitoringDashboardScreen(
+            controller: controller,
+            themeController: themeController,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Tap the Resolved tab
+      await tester.tap(find.text('Resolved'));
+      await tester.pumpAndSettle();
+
+      // Only the resolved alert is shown
+      expect(find.text('Zebra-07'), findsOneWidget);
+      expect(find.text('RESOLVED'), findsOneWidget);
+
+      // 'SEEN' status is never rendered
+      expect(find.text('SEEN'), findsNothing);
+
+      // Unclaimed alert filtered out
+      expect(find.text('Elephant-23'), findsNothing);
+    });
+
     testWidgets('shows theme toggle in app bar', (WidgetTester tester) async {
-      alertRepository.setMockActiveAlerts([]);
+      alertRepository.seed([]);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -188,10 +319,10 @@ void main() {
       expect(find.text('Dark'), findsOneWidget);
     });
 
-    testWidgets('opens simulate location sheet when FAB tapped', (
+    testWidgets('simulate location FAB is hidden when gated off', (
       WidgetTester tester,
     ) async {
-      alertRepository.setMockActiveAlerts([]);
+      alertRepository.seed([]);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -205,13 +336,9 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Tap simulate FAB
-      await tester.tap(find.text('Simulate'));
-      await tester.pumpAndSettle();
-
-      // Verify bottom sheet opened
-      expect(find.byKey(const Key('simulateSheetTitle')), findsOneWidget);
-      expect(find.text('Select Animal'), findsOneWidget);
+      // FAB is gated behind a dev flag and hidden by default
+      expect(find.text('Simulate'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
     });
 
     testWidgets('handles error state gracefully', (WidgetTester tester) async {
@@ -240,7 +367,7 @@ void main() {
     });
 
     testWidgets('renders correctly in dark theme', (WidgetTester tester) async {
-      alertRepository.setMockActiveAlerts([]);
+      alertRepository.seed([]);
 
       // Set dark theme
       await themeController.setThemeMode(ThemeMode.dark);
@@ -271,22 +398,15 @@ void main() {
     testWidgets('navigates to alert detail when alert tapped', (
       WidgetTester tester,
     ) async {
-      final mockAlerts = [
-        Alert(
+      // Mock alert is 'unclaimed' so it appears on the default Active tab.
+      alertRepository.seed([
+        buildAlert(
           alertId: 'alert-001',
-          type: 'high_risk_movement',
-          timestamp: Timestamp.fromDate(DateTime.now()),
-          status: 'active',
           responseStatus: 'unclaimed',
-          animalId: 'elephant-23',
-          zoneId: 'zone-001',
-          location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
           animalName: 'Elephant-23',
           locationLabel: 'Farmland Border',
         ),
-      ];
-
-      alertRepository.setMockActiveAlerts(mockAlerts);
+      ]);
 
       bool navigatedToAlert = false;
       String? alertId;

@@ -32,7 +32,7 @@ class WildoraApp extends StatelessWidget {
           darkTheme: AppTheme.dark(),
           themeMode: themeController.themeMode,
           onGenerateRoute: _appRouter.onGenerateRoute,
-          home: const MainNavigationScreen(),
+          home: MainNavigationScreen(themeController: themeController),
         );
       },
     );

@@ -107,7 +107,10 @@ class AppRouter {
         );
       case home:
         return MaterialPageRoute(
-          builder: (_) => const MainNavigationScreen(),
+          builder: (_) => MainNavigationScreen(
+            monitoringController: _monitoringController,
+            themeController: _themeController,
+          ),
           settings: settings,
         );
 
@@ -237,7 +240,10 @@ class AppRouter {
       default:
         // Fallback to home for unknown routes
         return MaterialPageRoute(
-          builder: (_) => const MainNavigationScreen(),
+          builder: (_) => MainNavigationScreen(
+            monitoringController: _monitoringController,
+            themeController: _themeController,
+          ),
           settings: settings,
         );
     }

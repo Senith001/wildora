@@ -8,7 +8,7 @@ import '../../../../data/models/alert.dart';
 /// Features:
 /// - Animal name and zone/location label
 /// - Formatted time display
-/// - Response status badge (unclaimed/responding/resolved/acknowledged)
+/// - Response status badge (unclaimed/responding/resolved)
 /// - Tap handling for navigation to detail screen
 /// - Theme-aware colors and typography
 class AlertListTile extends StatelessWidget {
@@ -21,7 +21,6 @@ class AlertListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final timestamp = alert.timestamp.toDate();
     final responseStatus = alert.responseStatus;
-    final status = alert.status;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -64,7 +63,7 @@ class AlertListTile extends StatelessWidget {
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildResponseStatusBadge(context, responseStatus, status),
+            _buildResponseStatusBadge(context, responseStatus),
             const SizedBox(height: 6),
             Icon(
               Icons.chevron_right,
@@ -82,7 +81,6 @@ class AlertListTile extends StatelessWidget {
   Widget _buildResponseStatusBadge(
     BuildContext context,
     String responseStatus,
-    String alertStatus,
   ) {
     final alertColors = Theme.of(context).extension<AlertColors>()!;
 
@@ -91,32 +89,26 @@ class AlertListTile extends StatelessWidget {
     Color badgeColor;
     Color textColor;
 
-    if (alertStatus == 'acknowledged') {
-      badgeText = 'SEEN';
-      badgeColor = alertColors.signal;
-      textColor = Theme.of(context).colorScheme.onPrimary;
-    } else {
-      switch (responseStatus) {
-        case 'unclaimed':
-          badgeText = 'URGENT';
-          badgeColor = alertColors.critical;
-          textColor = alertColors.onCritical;
-          break;
-        case 'responding':
-          badgeText = 'RESPONDING';
-          badgeColor = Theme.of(context).colorScheme.tertiary;
-          textColor = Theme.of(context).colorScheme.onTertiary;
-          break;
-        case 'resolved':
-          badgeText = 'RESOLVED';
-          badgeColor = Theme.of(context).colorScheme.secondary;
-          textColor = Theme.of(context).colorScheme.onSecondary;
-          break;
-        default:
-          badgeText = 'UNKNOWN';
-          badgeColor = Theme.of(context).colorScheme.surfaceContainerHighest;
-          textColor = Theme.of(context).colorScheme.onSurfaceVariant;
-      }
+    switch (responseStatus) {
+      case 'unclaimed':
+        badgeText = 'URGENT';
+        badgeColor = alertColors.critical;
+        textColor = alertColors.onCritical;
+        break;
+      case 'responding':
+        badgeText = 'RESPONDING';
+        badgeColor = Theme.of(context).colorScheme.tertiary;
+        textColor = Theme.of(context).colorScheme.onTertiary;
+        break;
+      case 'resolved':
+        badgeText = 'RESOLVED';
+        badgeColor = Theme.of(context).colorScheme.secondary;
+        textColor = Theme.of(context).colorScheme.onSecondary;
+        break;
+      default:
+        badgeText = 'UNKNOWN';
+        badgeColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+        textColor = Theme.of(context).colorScheme.onSurfaceVariant;
     }
 
     return Container(

@@ -85,10 +85,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify critical banner
-      expect(find.text('HIGH-RISK MOVEMENT DETECTED'), findsOneWidget);
-      expect(find.text('Immediate attention required'), findsOneWidget);
-      expect(find.byIcon(Icons.warning), findsOneWidget);
+      // Banner removed: critical banner no longer rendered
+      expect(find.text('HIGH-RISK MOVEMENT DETECTED'), findsNothing);
+      expect(find.text('Immediate attention required'), findsNothing);
+      expect(find.byIcon(Icons.warning), findsNothing);
 
       // Verify animal information
       expect(find.text('Animal: Elephant-23'), findsOneWidget);
@@ -100,8 +100,12 @@ void main() {
       expect(find.text('Response Status'), findsOneWidget);
       expect(find.byKey(const Key('alertStatusText')), findsOneWidget);
       expect(find.text('No one responding'), findsOneWidget);
-      expect(find.byKey(const Key('respondButton')), findsOneWidget);
-      expect(find.text('Acknowledge Alert'), findsOneWidget);
+      expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
+      expect(find.text('Accepted'), findsOneWidget);
+
+      // Verify View on Map button exists
+      expect(find.byKey(const Key('viewOnMapButton')), findsOneWidget);
+      expect(find.text('View on Map'), findsOneWidget);
 
       // Verify map placeholder
       expect(find.text('Location Map'), findsOneWidget);
@@ -144,13 +148,57 @@ void main() {
         // Verify response status shows user is responding
         expect(find.byKey(const Key('alertStatusText')), findsOneWidget);
         expect(find.text('You are responding'), findsOneWidget);
-        expect(find.text('Mark as Resolved'), findsOneWidget);
+        expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
+        expect(find.text('Responding'), findsOneWidget);
         expect(find.byIcon(Icons.directions_run), findsOneWidget);
-
-        // Should not show claim button
-        expect(find.text("I'm responding / Heading there"), findsNothing);
       },
     );
+
+    testWidgets('handles resolve response button tap when user is responding', (
+      WidgetTester tester,
+    ) async {
+      // Setup: Mock alert responded to by demo user
+      final alert = Alert(
+        alertId: 'alert-001',
+        type: 'high_risk_movement',
+        timestamp: Timestamp.now(),
+        status: 'active',
+        responseStatus: 'responding',
+        respondingOfficerId: 'demo-user',
+        respondingOfficerName: 'Demo User',
+        respondingAt: Timestamp.now(),
+        animalId: 'elephant-23',
+        zoneId: 'zone-farmland',
+        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+        animalName: 'Elephant-23',
+        locationLabel: 'Farmland Border',
+      );
+
+      alertRepository.setupAlert('alert-001', alert);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: AlertDetailScreen(alertId: 'alert-001', controller: controller),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Scroll to make button visible
+      await tester.scrollUntilVisible(
+        find.text('Responding'),
+        500.0,
+      );
+
+      // Tap the unified status button (should resolve)
+      await tester.tap(find.byKey(const Key('unifiedStatusButton')));
+      await tester.pumpAndSettle();
+
+      // Verify resolve response was called on repository
+      expect(alertRepository.resolveResponseCalls, hasLength(1));
+      expect(alertRepository.resolveResponseCalls.first, equals('alert-001'));
+    });
 
     testWidgets('shows other officer responding when claimed by someone else', (
       WidgetTester tester,
@@ -188,9 +236,11 @@ void main() {
       expect(find.text('Ranger Amara is responding'), findsWidgets);
       expect(find.byKey(const Key('otherOfficerButton')), findsOneWidget);
 
-      // Should not show claim or resolve buttons
-      expect(find.text("I'm responding / Heading there"), findsNothing);
-      expect(find.text('Mark as Resolved'), findsNothing);
+      // Verify the other officer button is disabled and shows officer name
+      final otherOfficerButton = tester.widget<ElevatedButton>(
+        find.byKey(const Key('otherOfficerButton')),
+      );
+      expect(otherOfficerButton.onPressed, isNull); // Button should be disabled
     });
 
     testWidgets('shows resolved status when alert is resolved', (
@@ -229,23 +279,26 @@ void main() {
       // Verify resolved status
       expect(find.byKey(const Key('alertStatusText')), findsOneWidget);
       expect(find.text('Situation resolved'), findsOneWidget);
-      expect(find.text('Situation Resolved'), findsOneWidget);
+      expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
+      expect(find.text('Resolved'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle), findsAtLeastNWidgets(1));
 
-      // Should not show action buttons
-      expect(find.text("I'm responding / Heading there"), findsNothing);
-      expect(find.text('Mark as Resolved'), findsNothing);
+      // Verify the resolved button is disabled
+      final resolvedButton = tester.widget<ElevatedButton>(
+        find.byKey(const Key('unifiedStatusButton')),
+      );
+      expect(resolvedButton.onPressed, isNull); // Button should be disabled
     });
 
-    testWidgets('shows acknowledged status when alert is acknowledged', (
+    testWidgets('shows Accepted button for unclaimed active alert', (
       WidgetTester tester,
     ) async {
-      // Setup: Mock acknowledged alert
+      // Setup: Mock unclaimed active alert
       final alert = Alert(
         alertId: 'alert-001',
         type: 'high_risk_movement',
         timestamp: Timestamp.now(),
-        status: 'acknowledged',
+        status: 'active',
         responseStatus: 'unclaimed',
         animalId: 'elephant-23',
         zoneId: 'zone-farmland',
@@ -265,11 +318,16 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify acknowledged status in acknowledge section
-      expect(find.text('Alert Acknowledged'), findsOneWidget);
-      expect(find.byIcon(Icons.visibility), findsAtLeastNWidgets(1));
+      // Verify the screen still renders animal info; banner removed
+      expect(find.text('HIGH-RISK MOVEMENT DETECTED'), findsNothing);
+      expect(find.text('Animal: Elephant-23'), findsOneWidget);
 
-      // Should not show acknowledge button
+      // Verify unified button reflects the response status
+      expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
+      expect(find.text('Accepted'), findsOneWidget); // Should show Accepted since responseStatus is unclaimed
+
+      // Should not show old SEEN or acknowledge button
+      expect(find.text('SEEN'), findsNothing);
       expect(find.text('Acknowledge Alert'), findsNothing);
     });
 
@@ -303,12 +361,12 @@ void main() {
 
       // Scroll to make buttons visible
       await tester.scrollUntilVisible(
-        find.text("I'm responding / Heading there"),
+        find.text('Accepted'),
         500.0,
       );
 
-      // Tap claim response button
-      await tester.tap(find.text("I'm responding / Heading there"));
+      // Tap unified status button (Accepted)
+      await tester.tap(find.byKey(const Key('unifiedStatusButton')));
       await tester.pumpAndSettle();
 
       // Verify claim response was called on repository
@@ -321,44 +379,6 @@ void main() {
         alertRepository.claimResponseCalls.first['officerId'],
         equals('demo-user'),
       );
-    });
-
-    testWidgets('handles acknowledge button tap', (WidgetTester tester) async {
-      // Setup: Mock unclaimed, unacknowledged alert
-      final alert = Alert(
-        alertId: 'alert-001',
-        type: 'high_risk_movement',
-        timestamp: Timestamp.now(),
-        status: 'active',
-        responseStatus: 'unclaimed',
-        animalId: 'elephant-23',
-        zoneId: 'zone-farmland',
-        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
-        animalName: 'Elephant-23',
-        locationLabel: 'Farmland Border',
-      );
-
-      alertRepository.setupAlert('alert-001', alert);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light(),
-          home: AlertDetailScreen(alertId: 'alert-001', controller: controller),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      // Scroll to make buttons visible
-      await tester.scrollUntilVisible(find.text('Acknowledge Alert'), 500.0);
-
-      // Tap acknowledge button
-      await tester.tap(find.text('Acknowledge Alert'));
-      await tester.pumpAndSettle();
-
-      // Verify acknowledge was called on repository
-      expect(alertRepository.acknowledgeAlertCalls, hasLength(1));
-      expect(alertRepository.acknowledgeAlertCalls.first, equals('alert-001'));
     });
 
     testWidgets('renders correctly in dark theme without overflow', (
@@ -391,7 +411,7 @@ void main() {
 
       // Verify screen renders without errors in dark mode
       expect(find.text('Alert Details'), findsOneWidget);
-      expect(find.text('HIGH-RISK MOVEMENT DETECTED'), findsOneWidget);
+      expect(find.text('HIGH-RISK MOVEMENT DETECTED'), findsNothing);
       expect(find.text('Animal: Elephant-23'), findsOneWidget);
 
       // Should not have any overflow or rendering errors

@@ -39,27 +39,27 @@ class _SimulateLocationSheetState extends State<SimulateLocationSheet> {
   final Map<String, Map<String, dynamic>> _presetLocations = {
     'inside_farmland': {
       'name': 'Inside Farmland Zone',
-      'lat': -1.2921,
-      'lng': 36.8219,
+      'lat': 6.3700,
+      'lng': 81.5200,
       'description': 'Center of farmland border zone (should trigger alert)',
     },
     'inside_road': {
       'name': 'Inside Road Zone',
-      'lat': -1.3000,
-      'lng': 36.8300,
+      'lat': 6.4400,
+      'lng': 80.8900,
       'description': 'Center of main road zone (should trigger alert)',
     },
     'outside_zones': {
       'name': 'Outside All Zones',
-      'lat': -1.2500,
-      'lng': 36.7500,
+      'lat': 6.3000,
+      'lng': 81.4000,
       'description': 'Safe area outside all zones (no alert)',
     },
     'near_farmland': {
       'name': 'Near Farmland Zone',
-      'lat': -1.2930,
-      'lng': 36.8230,
-      'description': 'Just outside farmland zone (no alert)',
+      'lat': 6.3710,
+      'lng': 81.5215,
+      'description': 'Just inside farmland zone (should trigger alert)',
     },
   };
 
@@ -334,7 +334,7 @@ class _SimulateLocationSheetState extends State<SimulateLocationSheet> {
                 controller: _latController,
                 decoration: const InputDecoration(
                   labelText: 'Latitude',
-                  hintText: '-1.2921',
+                  hintText: '6.3700',
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -349,7 +349,7 @@ class _SimulateLocationSheetState extends State<SimulateLocationSheet> {
                 controller: _lngController,
                 decoration: const InputDecoration(
                   labelText: 'Longitude',
-                  hintText: '36.8219',
+                  hintText: '81.5200',
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(

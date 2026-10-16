@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../data/models/alert.dart';
 import '../application/animal_monitoring_controller.dart';
-import 'widgets/alert_banner.dart';
-import 'widgets/zone_map_placeholder.dart';
+import 'widgets/alert_location_map.dart';
 
 /// Alert Detail Screen displaying high-risk movement alert information.
 ///
 /// Features per wireframe:
-/// - Red critical alert banner
 /// - Animal name and status
 /// - Detected time and location label
 /// - GPS status indicator
 /// - Zone map placeholder showing zone circle and animal pin
 /// - Response section with atomic claim/resolve controls
-/// - Acknowledge action
 /// - Real-time updates via StreamBuilder
 class AlertDetailScreen extends StatefulWidget {
   final String alertId;
@@ -58,12 +56,6 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Critical alert banner
-                  const AlertBanner(
-                    title: 'HIGH-RISK MOVEMENT DETECTED',
-                    subtitle: 'Immediate attention required',
-                  ),
-
                   // Alert information section
                   _buildAlertInfoSection(alert),
 
@@ -264,7 +256,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
     );
   }
 
-  /// Build map section with zone placeholder
+  /// Build map section with zone and View on Map button
   Widget _buildMapSection(Alert alert) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -277,14 +269,26 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
+          AlertLocationMap(
+            animalLocation: alert.location,
+            zoneRadiusMeters: 500,
+            locationLabel: alert.locationLabel ?? 'High-Risk Zone',
+          ),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 200,
             width: double.infinity,
-            child: ZoneMapPlaceholder(
-              zoneCenter: alert.location,
-              animalLocation: alert.location,
-              zoneRadiusMeters: 500, // Default zone radius
-              locationLabel: alert.locationLabel ?? 'High-Risk Zone',
+            child: ElevatedButton.icon(
+              key: const Key('viewOnMapButton'),
+              onPressed: () => _launchGoogleMaps(alert),
+              icon: const Icon(Icons.map),
+              label: const Text('View on Map'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
             ),
           ),
         ],
@@ -292,7 +296,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
     );
   }
 
-  /// Build response section with claim/resolve controls
+  /// Build response section with unified status button
   Widget _buildResponseSection(Alert alert) {
     return Card(
       margin: const EdgeInsets.all(16),
@@ -312,12 +316,8 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
             _buildResponseStatus(alert),
             const SizedBox(height: 16),
 
-            // Action buttons
-            _buildActionButtons(alert),
-            const SizedBox(height: 16),
-
-            // Acknowledge button
-            _buildAcknowledgeButton(alert),
+            // Unified status button
+            _buildUnifiedStatusButton(alert),
           ],
         ),
       ),
@@ -373,18 +373,49 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
     );
   }
 
-  /// Build action buttons based on current response status
-  Widget _buildActionButtons(Alert alert) {
+
+
+
+  /// Launch Google Maps at the animal's exact coordinates
+  Future<void> _launchGoogleMaps(Alert alert) async {
+    final lat = alert.location.latitude;
+    final lng = alert.location.longitude;
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Maps')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps')),
+      );
+    }
+  }
+
+  /// Build unified status button based on alert response status
+  Widget _buildUnifiedStatusButton(Alert alert) {
     switch (alert.responseStatus) {
       case 'unclaimed':
-        // Show "I'm responding" button using primary theme
         return SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
-            key: const Key('respondButton'),
+          child: ElevatedButton(
+            key: const Key('unifiedStatusButton'),
             onPressed: () => _claimResponse(alert),
-            icon: const Icon(Icons.directions_run),
-            label: const Text("I'm responding / Heading there"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            child: const Text('Accepted'),
           ),
         );
 
@@ -392,100 +423,46 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
         final isCurrentUser = alert.respondingOfficerId == _demoOfficerId;
 
         if (isCurrentUser) {
-          // Current user is responding - show resolve button
           return SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
+              key: const Key('unifiedStatusButton'),
               onPressed: () => _resolveResponse(alert),
-              icon: const Icon(Icons.check),
-              label: const Text('Mark as Resolved'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFBC02D),
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Responding'),
             ),
           );
         } else {
-          // Another officer is responding - show disabled button
           return SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               key: const Key('otherOfficerButton'),
               onPressed: null,
-              icon: const Icon(Icons.person),
-              label: Text('${alert.respondingOfficerName} is responding'),
+              child: Text('${alert.respondingOfficerName ?? 'Officer'} is responding'),
             ),
           );
         }
 
       case 'resolved':
-        // Show resolved status - no action needed
-        return Container(
+        return SizedBox(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).colorScheme.secondary),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Situation Resolved',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.secondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          child: ElevatedButton(
+            key: const Key('unifiedStatusButton'),
+            onPressed: null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Resolved'),
           ),
         );
 
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  /// Build acknowledge button
-  Widget _buildAcknowledgeButton(Alert alert) {
-    final alertColors = Theme.of(context).extension<AlertColors>()!;
-
-    if (alert.status == 'acknowledged') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: alertColors.signal.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: alertColors.signal),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.visibility, color: alertColors.signal),
-            const SizedBox(width: 8),
-            Text(
-              'Alert Acknowledged',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: alertColors.signal,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => _acknowledgeAlert(alert),
-        icon: const Icon(Icons.visibility),
-        label: const Text('Acknowledge Alert'),
-      ),
-    );
   }
 
   /// Claim response to the alert (atomic operation)
@@ -542,31 +519,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
     }
   }
 
-  /// Acknowledge the alert
-  Future<void> _acknowledgeAlert(Alert alert) async {
-    try {
-      await widget.controller.alertRepository.acknowledge(alert.alertId);
 
-      if (mounted) {
-        final alertColors = Theme.of(context).extension<AlertColors>()!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Alert acknowledged'),
-            backgroundColor: alertColors.signal,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to acknowledge alert: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
 
   /// Format timestamp for display
   String _formatTimestamp(DateTime timestamp) {

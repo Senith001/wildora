@@ -31,9 +31,6 @@ abstract class AlertRepository {
     String officerName,
   );
 
-  /// Acknowledge an alert (mark as acknowledged)
-  Future<void> acknowledge(String alertId);
-
   /// Resolve response for an alert
   Future<void> resolveResponse(String alertId);
 }
@@ -171,17 +168,6 @@ class FirestoreAlertRepository implements AlertRepository {
       return result;
     } catch (e) {
       throw Exception('Failed to claim response for alert $alertId: $e');
-    }
-  }
-
-  @override
-  Future<void> acknowledge(String alertId) async {
-    try {
-      await _firestore.collection(Alert.collectionName).doc(alertId).update({
-        'status': 'acknowledged',
-      });
-    } catch (e) {
-      throw Exception('Failed to acknowledge alert $alertId: $e');
     }
   }
 

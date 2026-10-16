@@ -125,7 +125,6 @@ class InMemoryAlertRepository implements AlertRepository {
 
   // Track method calls for testing
   final List<Map<String, dynamic>> claimResponseCalls = [];
-  final List<String> acknowledgeAlertCalls = [];
   final List<String> resolveResponseCalls = [];
 
   // Mock data for testing
@@ -258,6 +257,11 @@ class InMemoryAlertRepository implements AlertRepository {
   Stream<List<Alert>> streamAlerts() {
     // Create a stream that emits current state immediately, then listens for updates
     return Stream.multi((controller) {
+      if (_mockError != null) {
+        controller.addError(Exception(_mockError!));
+        return;
+      }
+
       // Emit current state immediately
       final current = _alerts.values.toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -357,20 +361,6 @@ class InMemoryAlertRepository implements AlertRepository {
     _emitAlertsUpdate();
     _emitAlertByIdUpdate(alertId);
     return true;
-  }
-
-  @override
-  Future<void> acknowledge(String alertId) async {
-    acknowledgeAlertCalls.add(alertId);
-
-    final alert = _alerts[alertId];
-    if (alert == null) {
-      throw Exception('Alert not found');
-    }
-
-    _alerts[alertId] = alert.copyWith(status: 'acknowledged');
-    _emitAlertsUpdate();
-    _emitAlertByIdUpdate(alertId);
   }
 
   @override
