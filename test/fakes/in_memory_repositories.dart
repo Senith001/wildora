@@ -375,7 +375,10 @@ class InMemoryAlertRepository implements AlertRepository {
       throw Exception('Alert not found');
     }
 
-    _alerts[alertId] = alert.copyWith(responseStatus: 'resolved');
+    _alerts[alertId] = alert.copyWith(
+      responseStatus: 'resolved',
+      resolvedAt: Timestamp.now(),
+    );
     _emitAlertsUpdate();
     _emitAlertByIdUpdate(alertId);
   }

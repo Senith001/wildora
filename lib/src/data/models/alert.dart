@@ -16,6 +16,7 @@ class Alert {
   final String? respondingOfficerId;
   final String? respondingOfficerName;
   final Timestamp? respondingAt;
+  final Timestamp? resolvedAt;
   final String animalId;
   final String zoneId;
   final AlertLocation location;
@@ -31,6 +32,7 @@ class Alert {
     this.respondingOfficerId,
     this.respondingOfficerName,
     this.respondingAt,
+    this.resolvedAt,
     required this.animalId,
     required this.zoneId,
     required this.location,
@@ -48,6 +50,7 @@ class Alert {
       respondingOfficerId: map['respondingOfficerId'] as String?,
       respondingOfficerName: map['respondingOfficerName'] as String?,
       respondingAt: map['respondingAt'] as Timestamp?,
+      resolvedAt: map['resolvedAt'] as Timestamp?,
       animalId: map['animalId'] as String,
       zoneId: map['zoneId'] as String,
       location: AlertLocation.fromMap(map['location'] as Map<String, dynamic>),
@@ -66,6 +69,7 @@ class Alert {
       'respondingOfficerId': respondingOfficerId,
       'respondingOfficerName': respondingOfficerName,
       'respondingAt': respondingAt,
+      'resolvedAt': resolvedAt,
       'animalId': animalId,
       'zoneId': zoneId,
       'location': location.toMap(),
@@ -84,6 +88,7 @@ class Alert {
     String? respondingOfficerId,
     String? respondingOfficerName,
     Timestamp? respondingAt,
+    Timestamp? resolvedAt,
     String? animalId,
     String? zoneId,
     AlertLocation? location,
@@ -100,6 +105,7 @@ class Alert {
       respondingOfficerName:
           respondingOfficerName ?? this.respondingOfficerName,
       respondingAt: respondingAt ?? this.respondingAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
       animalId: animalId ?? this.animalId,
       zoneId: zoneId ?? this.zoneId,
       location: location ?? this.location,

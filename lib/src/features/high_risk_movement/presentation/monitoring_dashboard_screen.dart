@@ -11,7 +11,6 @@ import 'widgets/simulate_location_sheet.dart';
 /// Features:
 /// - PickMe-style tab selector (Active / Responding / Resolved)
 /// - Live StreamBuilder over all alerts, filtered client-side per tab
-/// - Theme toggle (light/dark/system) in AppBar
 /// - Simulate location update control (FAB, gated behind dev flag)
 /// - Alert list with response status badges
 /// - Navigation to alert detail screen
@@ -58,88 +57,20 @@ class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
       appBar: AppBar(
         title: const Text('Monitoring Dashboard'),
         automaticallyImplyLeading: !widget.isEmbedded,
-        actions: [
-          // Theme toggle button
-          PopupMenuButton<ThemeMode>(
-            icon: Icon(
-              _getThemeIcon(widget.themeController.themeMode),
-              color: Theme.of(context).colorScheme.onPrimary,
-            ),
-            onSelected: (ThemeMode mode) {
-              widget.themeController.setThemeMode(mode);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: ThemeMode.system,
-                child: Row(
-                  children: [
-                    Icon(Icons.brightness_auto),
-                    SizedBox(width: 8),
-                    Text('System'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: ThemeMode.light,
-                child: Row(
-                  children: [
-                    Icon(Icons.light_mode),
-                    SizedBox(width: 8),
-                    Text('Light'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: ThemeMode.dark,
-                child: Row(
-                  children: [
-                    Icon(Icons.dark_mode),
-                    SizedBox(width: 8),
-                    Text('Dark'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Header section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.eco,
-                    size: 40,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'High-Risk Movement Monitoring',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Live alert tracking and response coordination',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 12),
 
             // PickMe-style tab selector
             _buildTabSelector(context),
+
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
 
             // Alerts list
             Expanded(
@@ -187,7 +118,7 @@ class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     itemCount: alerts.length,
                     itemBuilder: (context, index) {
                       final alert = alerts[index];
@@ -314,17 +245,5 @@ class _MonitoringDashboardScreenState extends State<MonitoringDashboardScreen> {
       builder: (context) =>
           SimulateLocationSheet(controller: widget.controller),
     );
-  }
-
-  /// Get appropriate icon for current theme mode
-  IconData _getThemeIcon(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return Icons.light_mode;
-      case ThemeMode.dark:
-        return Icons.dark_mode;
-      case ThemeMode.system:
-        return Icons.brightness_auto;
-    }
   }
 }

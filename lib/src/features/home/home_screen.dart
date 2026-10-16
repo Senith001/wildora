@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app_shell_tab_controller.dart';
 import '../manage_patrols/data/patrol_local_store.dart';
 import '../manage_patrols/data/patrol_models.dart';
 import '../manage_patrols/presentation/patrol_theme.dart';
@@ -422,6 +423,9 @@ class _HomeScreenState extends State<HomeScreen> {
       accentColor: const Color(0xFF1E3A8A),
       actionLabel: 'Open Dashboard',
       route: '/monitoring',
+      // Open the embedded Alert tab inside the shell instead of pushing the
+      // standalone '/monitoring' route, so the shell bottom nav stays visible.
+      onTapOverride: () => AppShellTabController.go(2),
     );
   }
 
@@ -460,13 +464,14 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color accentColor,
     required String actionLabel,
     required String route,
+    VoidCallback? onTapOverride,
   }) {
     return Container(
       decoration: PatrolTheme.cardDecoration(),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => Navigator.pushNamed(context, route),
+          onTap: onTapOverride ?? () => Navigator.pushNamed(context, route),
           borderRadius: PatrolTheme.radiusMd,
           child: Padding(
             padding: const EdgeInsets.all(16),

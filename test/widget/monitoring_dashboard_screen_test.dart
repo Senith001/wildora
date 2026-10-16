@@ -108,7 +108,8 @@ void main() {
 
         // Verify dashboard elements
         expect(find.text('Monitoring Dashboard'), findsOneWidget);
-        expect(find.text('High-Risk Movement Monitoring'), findsOneWidget);
+        // Header block removed; the old title should no longer render.
+        expect(find.text('High-Risk Movement Monitoring'), findsNothing);
 
         // Default tab (Active) empty state
         expect(find.text('No Active Alerts'), findsOneWidget);
@@ -291,7 +292,9 @@ void main() {
       expect(find.text('Elephant-23'), findsNothing);
     });
 
-    testWidgets('shows theme toggle in app bar', (WidgetTester tester) async {
+    testWidgets('does not show a theme switcher in the app bar', (
+      WidgetTester tester,
+    ) async {
       alertRepository.seed([]);
 
       await tester.pumpWidget(
@@ -306,17 +309,15 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Find theme toggle button (popup menu button)
-      expect(find.byIcon(Icons.brightness_auto), findsOneWidget);
+      // The theme switcher was removed from the dashboard AppBar. Theme
+      // switching now lives exclusively in Settings.
+      expect(find.byType(PopupMenuButton<ThemeMode>), findsNothing);
+      expect(find.byIcon(Icons.brightness_auto), findsNothing);
 
-      // Tap theme toggle to open menu
-      await tester.tap(find.byIcon(Icons.brightness_auto));
-      await tester.pumpAndSettle();
-
-      // Verify theme options
-      expect(find.text('System'), findsOneWidget);
-      expect(find.text('Light'), findsOneWidget);
-      expect(find.text('Dark'), findsOneWidget);
+      // The AppBar exposes no theme menu entries.
+      expect(find.text('System'), findsNothing);
+      expect(find.text('Light'), findsNothing);
+      expect(find.text('Dark'), findsNothing);
     });
 
     testWidgets('simulate location FAB is hidden when gated off', (
@@ -389,7 +390,6 @@ void main() {
       // Verify screen renders without errors in dark mode
       expect(find.text('Monitoring Dashboard'), findsOneWidget);
       expect(find.text('No Active Alerts'), findsOneWidget);
-      expect(find.byIcon(Icons.dark_mode), findsOneWidget);
 
       // Should not have any overflow or rendering errors
       expect(tester.takeException(), isNull);

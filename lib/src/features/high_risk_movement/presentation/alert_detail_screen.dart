@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../app/app_shell_tab_controller.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../app/widgets/app_shell_bottom_nav.dart';
 import '../../../data/models/alert.dart';
 import '../application/animal_monitoring_controller.dart';
 import 'widgets/alert_location_map.dart';
@@ -36,6 +38,14 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Alert Details')),
+      bottomNavigationBar: AppShellBottomNav(
+        selectedIndex: 2,
+        onDestinationSelected: (i) {
+          // Return to the shell, then select the tapped tab.
+          Navigator.of(context).popUntil((r) => r.isFirst);
+          AppShellTabController.go(i);
+        },
+      ),
       body: StreamBuilder<Alert?>(
         stream: widget.controller.alertRepository.watchById(widget.alertId),
         builder: (context, snapshot) {
@@ -116,6 +126,14 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
   Widget _buildAlertInfoSection(Alert alert) {
     final alertColors = Theme.of(context).extension<AlertColors>()!;
 
+    final isResolved = alert.responseStatus == 'resolved';
+    final statusLineText = isResolved
+        ? 'Resolved'
+        : 'In High-Risk Zone';
+    final statusLineColor = isResolved
+        ? Theme.of(context).colorScheme.secondary
+        : alertColors.critical;
+
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
@@ -148,9 +166,9 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Status: Entered High-Risk Zone',
+                        'Status: $statusLineText',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: alertColors.critical,
+                          color: statusLineColor,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -192,7 +210,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                     _buildInfoRowWithChip(
                       Icons.gps_fixed,
                       'GPS Status',
-                      'Active',
+                      isResolved ? 'Incident recorded' : 'Active',
                       trailing: const Icon(Icons.chevron_right, size: 20),
                     ),
                   ],
@@ -258,21 +276,56 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
 
   /// Build map section with zone and View on Map button
   Widget _buildMapSection(Alert alert) {
+    final isResolved = alert.responseStatus == 'resolved';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Text(
+                'Incident Location',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              if (isResolved) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondary
+                        .withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Resolved',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.secondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 2),
           Text(
-            'Location Map',
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+            'Recorded incident location',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 12),
           AlertLocationMap(
             animalLocation: alert.location,
             zoneRadiusMeters: 500,
             locationLabel: alert.locationLabel ?? 'High-Risk Zone',
+            isResolved: isResolved,
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -314,6 +367,9 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
 
             // Current response status
             _buildResponseStatus(alert),
+
+            // Resolution summary (only for resolved alerts with reliable data)
+            _buildResolutionSummary(alert),
             const SizedBox(height: 16),
 
             // Unified status button
@@ -340,9 +396,13 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
         break;
       case 'responding':
         final isCurrentUser = alert.respondingOfficerId == _demoOfficerId;
-        statusText = isCurrentUser
-            ? 'You are responding'
-            : '${alert.respondingOfficerName ?? "An officer"} is responding';
+        // Another officer is responding: the name is already shown on the
+        // disabled button (otherOfficerButton), so suppress the duplicate
+        // status line above it.
+        if (!isCurrentUser) {
+          return const SizedBox.shrink();
+        }
+        statusText = 'You are responding';
         statusColor = Theme.of(context).colorScheme.tertiary;
         statusIcon = Icons.directions_run;
         break;
@@ -370,6 +430,81 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Build resolution summary shown only for resolved alerts with reliable data.
+  ///
+  /// Omits any line whose underlying data is null (e.g. legacy alerts without
+  /// resolvedAt, or alerts with no responding officer recorded). Never
+  /// fabricates values.
+  Widget _buildResolutionSummary(Alert alert) {
+    if (alert.responseStatus != 'resolved') {
+      return const SizedBox.shrink();
+    }
+
+    final officerName = alert.respondingOfficerName;
+    final resolvedAt = alert.resolvedAt;
+
+    // Nothing reliable to show.
+    if (officerName == null && resolvedAt == null) {
+      return const SizedBox.shrink();
+    }
+
+    final mutedColor = Theme.of(context).colorScheme.secondary;
+
+    final summaryRows = <Widget>[];
+    if (officerName != null) {
+      summaryRows.add(
+        _buildInfoRowWithChip(
+          Icons.person,
+          'Responding ranger',
+          officerName,
+        ),
+      );
+    }
+    if (resolvedAt != null) {
+      if (summaryRows.isNotEmpty) {
+        summaryRows.add(
+          Divider(
+            height: 24,
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+          ),
+        );
+      }
+      summaryRows.add(
+        _buildInfoRowWithChip(
+          Icons.check_circle,
+          'Resolved',
+          _formatTimestamp(resolvedAt.toDate()),
+        ),
+      );
+    }
+
+    return Padding(
+      key: const Key('resolutionSummary'),
+      padding: const EdgeInsets.only(top: 12),
+      child: Card(
+        elevation: 0,
+        color: mutedColor.withOpacity(0.08),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Resolution Summary',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: mutedColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...summaryRows,
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -92,7 +92,7 @@ void main() {
 
       // Verify animal information
       expect(find.text('Animal: Elephant-23'), findsOneWidget);
-      expect(find.text('Status: Entered High-Risk Zone'), findsOneWidget);
+      expect(find.text('Status: In High-Risk Zone'), findsOneWidget);
       expect(find.text('Farmland Border'), findsOneWidget);
       expect(find.text('Active'), findsOneWidget);
 
@@ -103,12 +103,15 @@ void main() {
       expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
       expect(find.text('Accepted'), findsOneWidget);
 
+      // No resolution summary for an active unclaimed alert
+      expect(find.byKey(const Key('resolutionSummary')), findsNothing);
+
       // Verify View on Map button exists
       expect(find.byKey(const Key('viewOnMapButton')), findsOneWidget);
       expect(find.text('View on Map'), findsOneWidget);
 
-      // Verify map placeholder
-      expect(find.text('Location Map'), findsOneWidget);
+      // Verify incident location section header
+      expect(find.text('Incident Location'), findsOneWidget);
     });
 
     testWidgets(
@@ -151,6 +154,12 @@ void main() {
         expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
         expect(find.text('Responding'), findsOneWidget);
         expect(find.byIcon(Icons.directions_run), findsOneWidget);
+
+        // Active (non-resolved) workflow: status row still active, no
+        // resolution summary, incident location header present.
+        expect(find.text('Status: In High-Risk Zone'), findsOneWidget);
+        expect(find.text('Incident Location'), findsOneWidget);
+        expect(find.byKey(const Key('resolutionSummary')), findsNothing);
       },
     );
 
@@ -231,9 +240,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify response status shows other officer responding
-      expect(find.byKey(const Key('alertStatusText')), findsOneWidget);
-      expect(find.text('Ranger Amara is responding'), findsWidgets);
+      // Verify response status shows other officer responding.
+      // The status line above the button is suppressed for the other-officer
+      // case, so 'Ranger Amara is responding' now appears ONLY on the button.
+      expect(find.byKey(const Key('alertStatusText')), findsNothing);
+      expect(find.text('Ranger Amara is responding'), findsOneWidget);
       expect(find.byKey(const Key('otherOfficerButton')), findsOneWidget);
 
       // Verify the other officer button is disabled and shows officer name
@@ -246,7 +257,8 @@ void main() {
     testWidgets('shows resolved status when alert is resolved', (
       WidgetTester tester,
     ) async {
-      // Setup: Mock resolved alert
+      // Setup: Mock resolved alert WITH reliable resolution data
+      final resolvedAt = Timestamp.now();
       final alert = Alert(
         alertId: 'alert-001',
         type: 'high_risk_movement',
@@ -258,6 +270,7 @@ void main() {
         respondingAt: Timestamp.fromDate(
           DateTime.now().subtract(const Duration(minutes: 30)),
         ),
+        resolvedAt: resolvedAt,
         animalId: 'elephant-23',
         zoneId: 'zone-farmland',
         location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
@@ -280,8 +293,27 @@ void main() {
       expect(find.byKey(const Key('alertStatusText')), findsOneWidget);
       expect(find.text('Situation resolved'), findsOneWidget);
       expect(find.byKey(const Key('unifiedStatusButton')), findsOneWidget);
-      expect(find.text('Resolved'), findsOneWidget);
+      expect(find.text('Resolved'), findsWidgets);
       expect(find.byIcon(Icons.check_circle), findsAtLeastNWidgets(1));
+
+      // Status-driven info rows for resolved (no longer hard-coded)
+      expect(find.text('Status: Resolved'), findsOneWidget);
+      expect(find.text('Incident recorded'), findsOneWidget);
+
+      // Incident Location header + Resolved chip (chip reuses 'Resolved' text)
+      expect(find.text('Incident Location'), findsOneWidget);
+
+      // Resolution summary present with ranger name and a resolved time
+      expect(find.byKey(const Key('resolutionSummary')), findsOneWidget);
+      expect(find.text('Resolution Summary'), findsOneWidget);
+      expect(find.text('Responding ranger'), findsOneWidget);
+      expect(find.text('Ranger Amara'), findsWidgets);
+      // A resolved timestamp line is shown ('Just now' for a near-now time).
+      expect(find.text('Just now'), findsWidgets);
+
+      // View on Map still present for resolved alerts
+      expect(find.byKey(const Key('viewOnMapButton')), findsOneWidget);
+      expect(find.text('View on Map'), findsOneWidget);
 
       // Verify the resolved button is disabled
       final resolvedButton = tester.widget<ElevatedButton>(
@@ -289,6 +321,66 @@ void main() {
       );
       expect(resolvedButton.onPressed, isNull); // Button should be disabled
     });
+
+    testWidgets(
+      'resolved legacy alert without resolvedAt renders safely',
+      (WidgetTester tester) async {
+        // Setup: Legacy resolved alert with NO resolvedAt (backward-compat)
+        final alert = Alert(
+          alertId: 'alert-001',
+          type: 'high_risk_movement',
+          timestamp: Timestamp.now(),
+          status: 'active',
+          responseStatus: 'resolved',
+          respondingOfficerId: 'ranger-amara',
+          respondingOfficerName: 'Ranger Amara',
+          respondingAt: Timestamp.fromDate(
+            DateTime.now().subtract(const Duration(minutes: 30)),
+          ),
+          // resolvedAt intentionally omitted (null) -> legacy document
+          animalId: 'elephant-23',
+          zoneId: 'zone-farmland',
+          location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+          animalName: 'Elephant-23',
+          locationLabel: 'Farmland Border',
+        );
+
+        alertRepository.setupAlert('alert-001', alert);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: AlertDetailScreen(
+              alertId: 'alert-001',
+              controller: controller,
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Renders without exception
+        expect(tester.takeException(), isNull);
+
+        // Resolved status still rendered
+        expect(find.text('Situation resolved'), findsOneWidget);
+        expect(find.text('Incident Location'), findsOneWidget);
+
+        // Resolution summary does not crash; responding ranger line may show
+        // since respondingOfficerName is set, but NO fabricated timestamp.
+        expect(find.byKey(const Key('resolutionSummary')), findsOneWidget);
+        expect(find.text('Responding ranger'), findsOneWidget);
+        expect(find.text('Ranger Amara'), findsWidgets);
+        // No resolved-time row is fabricated. The resolved-time row renders a
+        // check_circle icon; without resolvedAt it is omitted, leaving only
+        // the single check_circle in the status line.
+        expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+        // View on Map still present
+        expect(find.byKey(const Key('viewOnMapButton')), findsOneWidget);
+        expect(find.text('View on Map'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows Accepted button for unclaimed active alert', (
       WidgetTester tester,

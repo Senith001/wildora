@@ -139,7 +139,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // The embedded dashboard content is now visible.
-      expect(find.text('High-Risk Movement Monitoring'), findsOneWidget);
+      // The old header title was removed; assert on the AppBar title instead.
+      expect(find.text('Monitoring Dashboard'), findsOneWidget);
       // Dashboard Active tab (and the seeded unclaimed alert) render.
       expect(find.text('Active'), findsOneWidget);
       expect(find.text('Elephant-23'), findsOneWidget);

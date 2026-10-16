@@ -88,16 +88,20 @@ void main() {
       final respondingAt = Timestamp.fromDate(
         DateTime.now().add(Duration(minutes: 5)),
       );
+      final resolvedAt = Timestamp.fromDate(
+        DateTime.now().add(Duration(minutes: 10)),
+      );
 
       final original = Alert(
         alertId: 'alert-01',
         type: 'high_risk_movement',
         timestamp: timestamp,
         status: 'active',
-        responseStatus: 'responding',
+        responseStatus: 'resolved',
         respondingOfficerId: 'officer-01',
         respondingOfficerName: 'Ranger John',
         respondingAt: respondingAt,
+        resolvedAt: resolvedAt,
         animalId: 'elephant-01',
         zoneId: 'zone-01',
         location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
@@ -122,12 +126,98 @@ void main() {
         equals(original.respondingOfficerName),
       );
       expect(restored.respondingAt, equals(original.respondingAt));
+      expect(restored.resolvedAt, equals(original.resolvedAt));
       expect(restored.animalId, equals(original.animalId));
       expect(restored.zoneId, equals(original.zoneId));
       expect(restored.location.latitude, equals(original.location.latitude));
       expect(restored.location.longitude, equals(original.location.longitude));
       expect(restored.animalName, equals(original.animalName));
       expect(restored.locationLabel, equals(original.locationLabel));
+    });
+
+    test('Alert toMap includes resolvedAt when set', () {
+      final resolvedAt = Timestamp.now();
+      final original = Alert(
+        alertId: 'alert-01',
+        type: 'high_risk_movement',
+        timestamp: Timestamp.now(),
+        status: 'active',
+        responseStatus: 'resolved',
+        resolvedAt: resolvedAt,
+        animalId: 'elephant-01',
+        zoneId: 'zone-01',
+        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+        animalName: 'Jumbo',
+      );
+
+      final map = original.toMap();
+
+      expect(map.containsKey('resolvedAt'), isTrue);
+      expect(map['resolvedAt'], equals(resolvedAt));
+    });
+
+    test('Alert fromMap reads provided resolvedAt', () {
+      final resolvedAt = Timestamp.now();
+      final map = {
+        'type': 'high_risk_movement',
+        'timestamp': Timestamp.now(),
+        'status': 'active',
+        'responseStatus': 'resolved',
+        'resolvedAt': resolvedAt,
+        'animalId': 'elephant-01',
+        'zoneId': 'zone-01',
+        'location': {'latitude': -1.2921, 'longitude': 36.8219},
+        'animalName': 'Jumbo',
+      };
+
+      final restored = Alert.fromMap('alert-01', map);
+
+      expect(restored.resolvedAt, equals(resolvedAt));
+    });
+
+    test('Alert fromMap with no resolvedAt key yields null (legacy)', () {
+      // Legacy documents written before resolvedAt existed have no such key.
+      final map = {
+        'type': 'high_risk_movement',
+        'timestamp': Timestamp.now(),
+        'status': 'active',
+        'responseStatus': 'resolved',
+        'animalId': 'elephant-01',
+        'zoneId': 'zone-01',
+        'location': {'latitude': -1.2921, 'longitude': 36.8219},
+        'animalName': 'Jumbo',
+        // No resolvedAt key at all
+      };
+
+      final restored = Alert.fromMap('alert-01', map);
+
+      expect(restored.resolvedAt, isNull);
+    });
+
+    test('Alert copyWith updates resolvedAt', () {
+      final original = Alert(
+        alertId: 'alert-01',
+        type: 'high_risk_movement',
+        timestamp: Timestamp.now(),
+        status: 'active',
+        responseStatus: 'responding',
+        animalId: 'elephant-01',
+        zoneId: 'zone-01',
+        location: const AlertLocation(latitude: -1.2921, longitude: 36.8219),
+        animalName: 'Jumbo',
+      );
+
+      expect(original.resolvedAt, isNull);
+
+      final resolvedAt = Timestamp.now();
+      final updated = original.copyWith(
+        responseStatus: 'resolved',
+        resolvedAt: resolvedAt,
+      );
+
+      expect(updated.responseStatus, equals('resolved')); // Changed
+      expect(updated.resolvedAt, equals(resolvedAt)); // Changed
+      expect(updated.alertId, equals(original.alertId)); // Unchanged
     });
 
     test('Alert defaults responseStatus to unclaimed when missing', () {
@@ -147,6 +237,7 @@ void main() {
       expect(restored.respondingOfficerId, isNull);
       expect(restored.respondingOfficerName, isNull);
       expect(restored.respondingAt, isNull);
+      expect(restored.resolvedAt, isNull);
     });
 
     test('AlertRecipient toMap/fromMap round-trip', () {

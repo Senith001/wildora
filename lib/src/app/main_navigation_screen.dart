@@ -16,6 +16,7 @@ import '../data/repositories/officer_repository.dart';
 import '../data/repositories/duty_roster_repository.dart';
 import '../data/repositories/alert_recipient_repository.dart';
 import '../data/repositories/user_preferences_repository.dart';
+import 'app_shell_tab_controller.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/app_shell_bottom_nav.dart';
 
@@ -62,6 +63,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       isEmbedded: true,
     );
     _pages[3] = SettingsScreen(themeController: _tc);
+
+    // Allow any screen to request a shell tab switch via AppShellTabController.
+    AppShellTabController.selectedTab.value = _selectedIndex;
+    AppShellTabController.selectedTab.addListener(_onExternalTabRequest);
+  }
+
+  /// Handle a tab-switch request originating from another screen.
+  void _onExternalTabRequest() {
+    final requested = AppShellTabController.selectedTab.value;
+    if (!mounted || requested == _selectedIndex) return;
+    _select(requested);
   }
 
   /// Build an [AnimalMonitoringController] inline, mirroring
@@ -105,6 +117,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       }
       _selectedIndex = index;
     });
+    // Keep the shared controller in sync so external listeners observe the
+    // shell's current tab (and we don't re-enter via the listener).
+    AppShellTabController.selectedTab.value = index;
   }
 
   @override
@@ -131,6 +146,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
   @override
   void dispose() {
+    AppShellTabController.selectedTab.removeListener(_onExternalTabRequest);
     WidgetsBinding.instance.removeObserver(this);
     _repository?.dispose();
     super.dispose();

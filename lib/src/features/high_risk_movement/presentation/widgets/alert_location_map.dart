@@ -14,18 +14,24 @@ class AlertLocationMap extends StatelessWidget {
   final AlertLocation animalLocation;
   final double zoneRadiusMeters;
   final String locationLabel;
+  final bool isResolved;
 
   const AlertLocationMap({
     super.key,
     required this.animalLocation,
     required this.zoneRadiusMeters,
     required this.locationLabel,
+    this.isResolved = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final alertColors = Theme.of(context).extension<AlertColors>()!;
     final center = LatLng(animalLocation.latitude, animalLocation.longitude);
+    // Muted styling for resolved alerts; red for active/responding.
+    final markerColor = isResolved
+        ? Theme.of(context).colorScheme.outline
+        : alertColors.critical;
 
     return Container(
       height: 200,
@@ -53,8 +59,8 @@ class AlertLocationMap extends StatelessWidget {
                   point: center,
                   radius: zoneRadiusMeters,
                   useRadiusInMeter: true,
-                  color: alertColors.critical.withOpacity(0.2),
-                  borderColor: alertColors.critical,
+                  color: markerColor.withOpacity(0.2),
+                  borderColor: markerColor,
                   borderStrokeWidth: 2,
                 ),
               ],
@@ -68,7 +74,7 @@ class AlertLocationMap extends StatelessWidget {
                   height: 40,
                   child: Icon(
                     Icons.location_on,
-                    color: alertColors.critical,
+                    color: markerColor,
                     size: 40,
                   ),
                 ),

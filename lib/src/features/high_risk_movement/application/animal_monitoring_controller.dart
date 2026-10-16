@@ -288,6 +288,7 @@ class AnimalMonitoringController extends ChangeNotifier {
       if (_lastAlert?.alertId == alertId) {
         _lastAlert = _lastAlert!.copyWith(
           responseStatus: AlertResponseStatus.resolved,
+          resolvedAt: Timestamp.now(),
         );
       }
 

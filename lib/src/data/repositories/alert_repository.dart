@@ -176,6 +176,7 @@ class FirestoreAlertRepository implements AlertRepository {
     try {
       await _firestore.collection(Alert.collectionName).doc(alertId).update({
         'responseStatus': 'resolved',
+        'resolvedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       throw Exception('Failed to resolve response for alert $alertId: $e');

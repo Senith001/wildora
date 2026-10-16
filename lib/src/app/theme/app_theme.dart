@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'brand_colors.dart';
+
 /// Centralized theme configuration for Wildora app.
 ///
 /// Provides both light and dark theme variants using a conservation green
@@ -13,14 +15,15 @@ class AppTheme {
 
     return ThemeData(
       colorScheme: colorScheme,
-      appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
+      scaffoldBackgroundColor: kBrandBackgroundLight,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: kBrandHeaderGreen,
+        foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 2,
         titleTextStyle: TextStyle(
-          color: colorScheme.onPrimary,
+          color: Colors.white,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
@@ -72,14 +75,14 @@ class AppTheme {
 
     return ThemeData(
       colorScheme: colorScheme,
-      appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: kBrandHeaderGreen,
+        foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 2,
         titleTextStyle: TextStyle(
-          color: colorScheme.onPrimary,
+          color: Colors.white,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
