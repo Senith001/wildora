@@ -111,11 +111,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                 ],
 
-                // ─── Featured Operational Module: Manage Ranger Patrols ─────
-                _buildFeaturedPatrolCard(context),
-
-                const SizedBox(height: 10),
-
                 // ─── Manager Dispatch & Review Actions ─────────────────────
                 _buildManagerQuickActions(context),
 
@@ -157,6 +152,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           SizedBox(
                             width: (constraints.maxWidth - 14) / 2,
+                            child: _buildPatrolCard(context),
+                          ),
+                          SizedBox(
+                            width: (constraints.maxWidth - 14) / 2,
                             child: _buildMonitoringCard(context),
                           ),
                           SizedBox(
@@ -173,6 +172,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     return Column(
                       children: [
+                        _buildPatrolCard(context),
+                        const SizedBox(height: 12),
                         _buildMonitoringCard(context),
                         const SizedBox(height: 12),
                         _buildConflictCard(context),
@@ -242,27 +243,6 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Setup / Health indicator
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: PatrolTheme.radiusFull,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Text(
-                    'Initial setup is working ✅',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
                 const Text(
                   'Welcome to Wildora',
                   style: TextStyle(
@@ -356,178 +336,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Featured card for Mihiranga R P's Manage Ranger Patrols module.
-  Widget _buildFeaturedPatrolCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1B4332),
-            Color(0xFF2D6A4F),
-          ],
-        ),
-        borderRadius: PatrolTheme.radiusLg,
-        boxShadow: PatrolTheme.cardShadowHover,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => Navigator.pushNamed(context, '/patrol'),
-          borderRadius: PatrolTheme.radiusLg,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: PatrolTheme.radiusFull,
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.stars, size: 12, color: Colors.amber),
-                          SizedBox(width: 4),
-                          Text(
-                            'CORE MODULE • IT23610248',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.gps_fixed,
-                          size: 16, color: Colors.white70),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.directions_walk,
-                        size: 30,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Manage Ranger Patrols',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Conduct and track assigned field patrols, log waypoints, and review route coverage',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.88),
-                              fontSize: 13,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                const Divider(height: 1, color: Colors.white24),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    _buildPill('Offline Cache'),
-                    const SizedBox(width: 8),
-                    _buildPill('GPS Track'),
-                    const SizedBox(width: 8),
-                    _buildPill('Cloud Sync'),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: PatrolTheme.radiusFull,
-                      ),
-                      child: const Row(
-                        children: [
-                          Text(
-                            'Open Patrol Module',
-                            style: TextStyle(
-                              color: PatrolTheme.forestDeep,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(
-                            Icons.arrow_forward,
-                            size: 14,
-                            color: PatrolTheme.forestDeep,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPill(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+  /// Patrol module card for Manage Ranger Patrols module.
+  Widget _buildPatrolCard(BuildContext context) {
+    return _buildModuleCard(
+      context: context,
+      title: 'Manage Ranger Patrols',
+      subtitle:
+          'Conduct and track assigned field patrols, log waypoints, and review route coverage',
+      icon: Icons.directions_walk,
+      accentColor: PatrolTheme.forestPrimary,
+      actionLabel: 'Open Patrol Module',
+      route: '/patrol',
     );
   }
 
