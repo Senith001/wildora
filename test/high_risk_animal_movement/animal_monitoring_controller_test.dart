@@ -13,7 +13,7 @@ import 'package:wildora/src/features/high_risk_movement/domain/geo.dart';
 import 'package:wildora/src/features/high_risk_movement/domain/monitoring_state.dart';
 import 'package:wildora/src/features/high_risk_movement/domain/zone_check_result.dart';
 
-import '../../fakes/in_memory_repositories.dart';
+import '../fakes/in_memory_repositories.dart';
 
 void main() {
   group('AnimalMonitoringController', () {

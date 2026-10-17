@@ -7,7 +7,7 @@ import 'package:wildora/src/data/models/officer.dart';
 import 'package:wildora/src/features/high_risk_movement/application/high_risk_zone_detection_service.dart';
 import 'package:wildora/src/features/high_risk_movement/domain/geo.dart';
 
-import '../../fakes/in_memory_repositories.dart';
+import '../fakes/in_memory_repositories.dart';
 
 void main() {
   group('HighRiskZoneDetectionService', () {

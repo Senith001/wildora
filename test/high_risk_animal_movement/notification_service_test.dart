@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wildora/src/features/high_risk_movement/application/notification_service.dart';
 import 'package:wildora/src/features/high_risk_movement/application/messaging_wrapper.dart';
 
-import '../../fakes/in_memory_repositories.dart';
+import '../fakes/in_memory_repositories.dart';
 
 void main() {
   group('NotificationService', () {
